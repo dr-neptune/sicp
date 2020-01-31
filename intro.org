@@ -3,6 +3,31 @@
   :header-args: :session intro :results verbatim
   :END:
 
+Add this to your init file
+
+#+BEGIN_SRC elisp
+(defun tws-insert-scheme-chunk () 
+  (interactive) 
+  (insert (concat "#+BEGIN_SRC scheme" "\n\n#+END_SRC")) 
+  (forward-line -1))
+
+(global-set-key (kbd "C-c d") 'tws-insert-scheme-chunk)
+
+(add-hook 'scheme-mode-hook 'geiser-mode)
+(require 'scheme)
+(setq geiser-active-implementations '(mit))
+(custom-set-variables '(scheme-program-name "mit-scheme"))
+
+;; Org Babel
+(org-babel-do-load-languages
+ 'org-babel-load-languages
+ '((R . t)
+   (shell . t)
+   (scheme . t)))
+#+END_SRC
+
+---------
+
 #+BEGIN_SRC scheme
 (define x "foop")
 
@@ -32,3 +57,4 @@ x
 
 #+RESULTS:
 : 325
+
