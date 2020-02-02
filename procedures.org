@@ -1,0 +1,63 @@
+* 1.2 | Procedures and the Processes They Generate
+  :PROPERTIES:
+  :header-args: :session intro :results verbatim raw
+  :END:
+
+A procedure is a pattern for the local evolution of a computational process. It specifies how each stage of the process is built upon the previous stage. We would like to be able to make statements about the overall, or global, behavior of a process whose local evolution has been specified by a procedure. 
+
+** 1.2.1 | Linear Recursion and Iteration
+
+#+BEGIN_SRC scheme
+(define (factorial n)
+  (if (= n 1)
+      1
+      (* n (factorial (- n 1)))))
+
+(factorial 5)
+#+END_SRC
+
+#+RESULTS:
+120
+3628800
+1
+2
+
+This is the linear recursive method for computing factorials
+
+
+#+DOWNLOADED: /tmp/screenshot.png @ 2020-02-02 10:52:25
+[[file:1.2 | Procedures and the Processes They Generate/screenshot_2020-02-02_10-52-25.png]]
+
+The substitution model reveals a shape of expansion followed by contraction. The expansion occurs as the process builds up a chain of deferred operations. The contraction occurs as the operations are actually performed. 
+
+This type of process, characterized by a chain of deferred operations, is called a recursive process. 
+
+#+BEGIN_SRC scheme
+(define (factorial n)
+  (define (iter product counter)
+    (if (> counter n)
+        product
+        (iter (* product counter) 
+              (+ counter 1))))
+
+  (iter 1 1))
+
+(factorial 5)
+#+END_SRC
+
+#+RESULTS:
+120
+1
+1
+720
+factorial
+
+This is the linear iterative process for computing a factorial.
+
+#+DOWNLOADED: /tmp/screenshot.png @ 2020-02-02 10:56:28
+[[file:1.2 | Procedures and the Processes They Generate/screenshot_2020-02-02_10-56-28.png]]
+
+In contrast to the above, this method does not grow and shrink. At each step we keep track of, for any n, the current values of product, counter, and max-count. This is an iterative process. 
+
+In general, an iterative process is one whose state can be summarized by a fixed number of state variables, together with a fixed rule that describes how the state variables should be updated as the process moves from state to state and an optional end test that specifies conditions under which the process should terminate. 
+

@@ -554,3 +554,103 @@ This doesn't work for 0 or negative values. Return to it
 
 **** 1.1.8 | Procedures as Black Box Algorithms
 
+Notice that the problem of computing square roots naturally breaks up into a number of subproblems: how to tell whether a guess is good enough, how to improve a guess and so on. 
+
+We use square as an abstraction of a procedure. Therefore, we don't care about how square is implemented, but only that it is
+
+#+BEGIN_SRC scheme
+(define (square x) (* x x))
+
+(define (double x) (+ x x))
+(define (square x) (exp (double (log x))))
+#+END_SRC
+
+#+RESULTS:
+square
+
+#+BEGIN_SRC scheme
+(square 4)
+#+END_SRC
+
+#+RESULTS:
+15.999999999999998
+
+*Local Names*
+
+The implementer's choice of names for the procedure's formal parameters should not matter to the user. This principle has some consequences, the simplest of which is that the parameter names of a procedure must be local to the body of the procedure. 
+
+In the cases of good-enough? and square used within it, we had the formal parameter x for good-enough? which represented the goal of the computation and the formal parameter x for square which is the number to be squared. If the parameters were not local to the bodies of their respective procedures, then the parameter x in square could be confused with the parameter x in good-enough? and then behavior of good-enough? would depend upon which version of square we used. 
+
+A formal parameter of a procedure has a very special role in the procedure definition, in that it doesn't matter what name the formal parameter has. Such a name is called a _bound variable_, and we say that the procedure definition _binds_ its formal parameters. If a variable is not bound, then we say that it is _free_. The set of expressions for which a binding defines a name is called the _scope_ of a name. 
+
+*Internal Definitions and Block Structure*
+
+We have one kind of name isolation available to us so far: The formal parameters of a procedure are local to the body of the procedure. 
+
+The existing sqrt program is problematic in that it consists of different procedures of which the only one that may be important to users is sqrt. This becomes problematic as we construct large programs by many separate programmers.
+
+We would like to localize the subprocedures, hiding them inside sqrt so that sqrt could coexist with other successive approximations, each having its own internal mechanisms. 
+
+#+BEGIN_SRC scheme
+(define (sqrt x)
+  (define (good-enough? guess x)
+    (< (abs (- (square guess) x)) (* x .001)))
+
+  (define (improve guess x)
+    (average guess (/ x guess)))
+
+  (define (average x y)
+    (/ (+ x y) 2))
+
+  (define (sqrt-iter guess x)
+    (if (good-enough? guess x)
+        guess
+        (sqrt-iter (improve guess x) x)))
+
+  (sqrt-iter 1.0 x))
+#+END_SRC
+
+#+RESULTS:
+sqrt
+sqrt
+
+#+BEGIN_SRC scheme
+(sqrt 9)
+#+END_SRC
+
+#+RESULTS:
+3.00009155413138
+
+This nesting of definitions, called _block structure_ is a good solution to the simplest name-packaging problem, but there is a better idea here. 
+
+Since x is bound to the definition of sqrt, the procedures good-enough?, improve, average, and sqrt-iter are in the scope of x. Thus we do not have to explicitly pass x to these procedures. Instead we allow x to be a free variable in the internal definitions. This discipline is called _lexical scoping_.
+
+#+BEGIN_SRC scheme
+(define (sqrt x)
+  (define (good-enough? guess)
+    (< (abs (- (square guess) x)) (* x .0001)))
+
+  (define (improve guess)
+    (average guess (/ x guess)))
+
+  (define (average x y)
+    (/ (+ x y) 2))
+
+  (define (sqrt-iter guess)
+    (if (good-enough? guess)
+        guess
+        (sqrt-iter (improve guess))))
+
+  (sqrt-iter 1.0))
+#+END_SRC
+
+#+RESULTS:
+sqrt
+
+#+BEGIN_SRC scheme
+(sqrt 9)
+#+END_SRC
+
+#+RESULTS:
+3.00009155413138
+
