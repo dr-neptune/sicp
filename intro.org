@@ -55,11 +55,11 @@ x
 (define (sum-of-squares x y)
   (+ (square x) (square y)))
 
-(sum-of-squares 10 25)
+(sum-of-squares 109 25)
 #+END_SRC
 
 #+RESULTS:
-725
+12506
 
 ** 1. Building Abstractions with Procedures
 
@@ -139,5 +139,418 @@ To evaluate a combination, do the following:
 
 The evaluation rule is recursive in nature; it includes, as one of its steps, the need to invoke the rule itself. Recursion, in general, is a very powerful technique for dealing with hierarchical, treelike objects. The "percolate values upward" form of the evaluation rule is an example of a general kind of process known as tree accumulation.
 
+We take care of primitive cases by stipulating that 
 
+- the values of numerals are the numbers that they name
+- the values of built in operators are the machine instruction sequences that carry out the corresponding operations
+- the values of other names are the objects associated with those names in the environment
+
+There are symbols which require special handling. These are called _special forms_. The various kinds of expressions (each with its own associated special evaluation rule) constitute the syntax of the programming language. 
+
+**** 1.1.4 | Compound Procedures 
+
+#+BEGIN_SRC scheme
+(define (square x) (* x x))
+
+(square 1000)
+(square (+ 2 3 4 5))
+(square (square (square 3)))
+#+END_SRC
+
+#+RESULTS:
+6561
+
+#+BEGIN_SRC scheme
+(define (sum-of-squares x y) 
+  (+ (square x) (square y)))
+
+(sum-of-squares 3 4)
+#+END_SRC
+
+#+RESULTS:
+25
+
+#+BEGIN_SRC scheme
+(define (f a)
+  (sum-of-squares (+ a 1) (* a 2)))
+
+(f 5)
+#+END_SRC
+
+#+RESULTS:
+136
+
+**** 1.1.5 | The Substitution Model for Procedure Application
+
+*applicative order*
+
+#+BEGIN_SRC scheme
+(f 5)
+(sum-of-squares (square (+ a 1) (* a 2)))
+(sum-of-squares (square (+ 5 1) (* 5 2)))
+(sum-of-squares (square 6) (square 10))
+(+ (square 6) (square 10))
+(+ (* 6 6) (* 10 10))
+(+ 36 100)
+136
+#+END_SRC
+
+This model of evaluation first evaluates the operator and operands and then applies the resulting procedure to the resulting arguments.
+
+*normal order*
+
+We could also not evaluate the operands until their value is needed. This would substitute operand expressions for parameters until it obtains an expression involving only primitive operators, and then perform the operation.
+
+#+BEGIN_SRC scheme
+(f 5)
+(sum-of-squares (square (+ a 1) (* a 2)))
+(sum-of-squares (square (+ 5 1) (* 5 2)))
+(+ (square (+ 5 1) (square (* 5 2))))
+(+ (* 6 6) (* 10 10))
+(+ 36 100)
+136
+#+END_SRC
+
+**** 1.1.6 | Conditional Expressions and Predicates
+
+#+BEGIN_SRC scheme
+(define (abs x)
+  (cond ((> x 0) x)
+        ((= x 0) 0)
+        ((< x 0) (- x))))
+
+(abs -100)
+#+END_SRC
+
+#+RESULTS:
+100
+
+#+BEGIN_SRC scheme
+(define (abs x)
+  (cond ((< x 0) (- x))
+        (else x)))
+
+(abs -109)
+#+END_SRC
+
+#+RESULTS:
+109
+109
+
+#+BEGIN_SRC scheme
+(define (abs x)
+  (if (< x 0)
+      (- x)
+      x))
+
+(abs -4)
+#+END_SRC
+
+#+RESULTS:
+4
+4
+
+#+BEGIN_SRC scheme
+(define (>= x y)
+  (not (< x y)))
+
+(>= 4 6)
+#+END_SRC
+
+#+RESULTS:
+#f
+
+- 1.3
+
+#+BEGIN_SRC scheme
+(define (ss-top x y z)
+  (if (>= x y)
+      (if (>= y z)
+          (sum-of-squares x y)
+          (sum-of-squares x z))
+      (if (>= x z)
+          (sum-of-squares x y) 
+          (sum-of-squares y z))))
+
+(ss-top 5 5 3)
+#+END_SRC
+
+#+RESULTS:
+50
+
+- 1.4
+
+#+BEGIN_SRC scheme
+(define (a-plus-abs-b a b)
+  ((if (> b 0) 
+       + 
+       -)
+   a b))
+
+(a-plus-abs-b 3 - 3)
+#+END_SRC
+
+#+RESULTS:
+6
+
+We can view the operators + - as returning procedures that take arguments a b c d ... and so on. So when we evaluate (> b 0) it returns the procedure that takes the arguments a b and then evaluates this new procedure. 
+
+- 1.5
+
+#+BEGIN_SRC scheme
+(define (p) (p))
+
+(define (test x y)
+  (if (= x 0) 0 y))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(test 0 (p))
+#+END_SRC
+
+If Ben is using an interpreter that uses normal order evaluation
+
+#+BEGIN_SRC scheme
+(test 0 (p))
+(if (= x 0) 0 y)
+(if (= 0 0) 0 (p))
+(if (#t) 0 (p))
+(0)
+#+END_SRC
+
+Everything gets expanded out and then reduced. Since if never evaluates (p), we don't need to bother with it. 
+
+If Ben is using an interpreter that uses applicative order evaluation
+
+#+BEGIN_SRC scheme
+(test 0 (p))
+(test 0 (p))
+...
+(test 0 (p))
+#+END_SRC
+
+This is because applicative order substitutes operand expressions for parameters until it has an expression that is just primitives. Since (p) returns itself, it is never able to reach the state of consisting of just primitives.
+
+**** 1.1.7 | Example: Square Roots by Newton's Method
+
+A common way to compute square roots is to use Newton's Method of Successive Approximation. This says whenever we have a guess y for the value of the square root of a number, we can perform a simple manipulation to get a better guess closer to the actual square root. 
+
+#+BEGIN_SRC scheme
+(define (sqrt-iter guess x)
+  (if (good-enough? guess x)
+      guess
+      (sqrt-iter (improve guess x) x)))
+#+END_SRC
+
+#+RESULTS:
+sqrt-iter
+sqrt-iter
+
+A guess is improved by averaging it with the quotient of the radicand and the old guess
+
+#+BEGIN_SRC scheme
+(define (improve guess x)
+  (average guess (/ x guess)))
+
+(define (average x y)
+  (/ (+ x y) 2))
+#+END_SRC
+
+We also have to define what we mean by good enough. The idea in the function below is to improve the answer until it is close enough that its square differs from the radicand by less than a predetermined tolerance 
+
+#+BEGIN_SRC scheme
+(define (good-enough? guess x)
+  (< (abs (- (square guess) x)) 0.001))
+#+END_SRC
+
+#+RESULTS:
+good-enough?
+
+#+BEGIN_SRC scheme
+(define (sqrt x)
+  (sqrt-iter 1.0 x))
+#+END_SRC
+
+#+RESULTS:
+sqrt
+
+#+BEGIN_SRC scheme
+(sqrt 9)
+#+END_SRC
+
+#+RESULTS:
+3.00009155413138
+
+#+BEGIN_SRC scheme
+(sqrt 2)
+#+END_SRC
+
+#+RESULTS:
+1.4142156862745097
+
+#+BEGIN_SRC scheme
+(sqrt (+ 100 37))
+#+END_SRC
+
+#+RESULTS:
+11.704699917758145
+
+#+BEGIN_SRC scheme
+(sqrt (sqrt 2))
+#+END_SRC
+
+#+RESULTS:
+1.1893407235990843
+
+#+BEGIN_SRC scheme
+(square (sqrt 100))
+#+END_SRC
+
+#+RESULTS:
+100.00000000279795
+
+- Exercise 1.6
+
+#+BEGIN_SRC scheme
+(define (new-if predicate then-clause else-clause)
+  (cond (predicate then-clause)
+        (else else-clause)))
+
+(new-if (= 2 3) 0 5)
+#+END_SRC
+
+#+RESULTS:
+5
+
+#+BEGIN_SRC scheme
+(define (sqrt-iter guess x)
+  (new-if (good-enough? guess x)
+          guess
+          (sqrt-iter (improve guess x)
+                     x)))
+#+END_SRC
+
+#+RESULTS:
+sqrt-iter
+
+#+BEGIN_SRC scheme
+(sqrt 9)
+#+END_SRC
+
+#+RESULTS:
+
+It breaks. Since if is a special form, it allows us to express the conditions within it with normal evaluation. Since new-if does not have these special conditions, it uses the default method of evaluation for scheme -- applicative. Applicative evaluation will try to reduce the procedures contained within the arguments down to get a set of primitives. This means that the function is evaluating sqrt-iter with the same guess over and over until the stack overflows.
+
+- 1.7
+
+The problem with very small numbers is that the arbitrary cutoff of .001 is not small enough. This will allow the procedure to accept answers that contain a lot of error. For example
+
+#+BEGIN_SRC scheme
+(sqrt 0.2)
+#+END_SRC
+
+#+RESULTS:
+0.44761904761904764
+
+has an error of -0.000405452 (from wolframalpha)
+
+whereas 
+
+#+BEGIN_SRC scheme
+(sqrt 0.02)
+#+END_SRC
+
+#+RESULTS:
+0.1444238094866232
+
+has an error of -0.00300245, an order of magnitude larger
+
+#+BEGIN_SRC scheme
+(sqrt 0.002)
+#+END_SRC
+
+#+RESULTS:
+5.0131352980478244e-2
+
+0.00540999
+
+#+BEGIN_SRC scheme
+(sqrt 0.0002)
+#+END_SRC
+
+#+RESULTS:
+0.03335281609280434
+
+-0.0192107
+
+#+BEGIN_SRC scheme
+(sqrt 100000000000000000000000000000000000000000)
+#+END_SRC
+
+#+RESULTS:
+3.1622776601683794e20
+
+This is pretty accurate. I think the problem that was likely trying to be shown is length of computation time for numbers that large. This might have been ameliorated with better hardware.
+
+#+BEGIN_SRC scheme
+(define (good-enough? guess x)
+  (< (abs (- (square guess) x)) (* 0.001 x)))
+#+END_SRC
+
+#+RESULTS:
+good-enough?
+
+#+BEGIN_SRC scheme
+(sqrt 0.0002)
+#+END_SRC
+
+#+RESULTS:
+1.4142150140500532e-2
+
+- 1.8
+
+If y is an approximation to the cube root of x, then a better approximation is given by the value $\frac{(x / y^2) + 2y}{3}$
+
+#+BEGIN_SRC scheme
+(define (cube-rt-iter guess x)
+  (if (good-enough? guess x)
+      guess
+      (cube-rt-iter (cube-avg guess x) x)))
+
+(define (cube-avg guess x)
+  (/
+   (+ (/ x (square guess))
+      (* 2 guess))
+   3))
+
+(define (cube x)
+  (* x x x))
+
+(define (good-enough? guess x)
+  (< (abs (- (cube guess) x)) (* 0.0001 x)))
+
+(define (cbrt x)
+  (cube-rt-iter 1.0 x))
+#+END_SRC
+
+This doesn't work for 0 or negative values. Return to it 
+
+#+BEGIN_SRC scheme
+(cube-rt-iter 1.0 (-2))
+#+END_SRC
+
+#+RESULTS:
+
+#+BEGIN_SRC scheme
+(cbrt 8)
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(cbrt 0.01)
+#+END_SRC
+
+#+RESULTS:
+0.21544348341456257
+
+**** 1.1.8 | Procedures as Black Box Algorithms
 
