@@ -61,3 +61,159 @@ In contrast to the above, this method does not grow and shrink. At each step we 
 
 In general, an iterative process is one whose state can be summarized by a fixed number of state variables, together with a fixed rule that describes how the state variables should be updated as the process moves from state to state and an optional end test that specifies conditions under which the process should terminate. 
 
+In contrasting iteration and recursion, we must not confuse the notion of a recursive process with the notion of a recursive procedure. 
+
+When we describe a procedure as recursive, we are referrring to the syntactic fact that the procedure definition refers (either directly or indirectly) to the procedure itself.
+
+When we describe a process as following a pattern that is linearly recursive we are speaking about how the process evolves, not about the syntax with how it is written. 
+
+This is confusing because the implementation of most imperative languages are designed in such a way that the interpretation of any recursive procedure consumes an amount of memory that grows with the number of procedure calls. As a consequence, these languages resort to special purpose looping constructs such as do, repeat, until, for, and while. 
+
+In contrast scheme executes an iterative process in constant space, even if the iterative process is described by a recursive procedure. An implementation with this property is called tail recursive. 
+
+- Exercise 1.9 
+
+#+BEGIN_SRC scheme
+(define (+ a b)
+  (if (= a 0)
+      b
+      (inc (+ (dec a) b))))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(+ 4 5)
+(inc (+ 3 5))
+(inc 8)
+(9)
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(+ 4 5)
+(inc (+ (dec 4) 5))
+(inc (+ 3 5))
+(inc (inc (+ (dec 3) 5)))
+(inc (inc (+ 2 5)))
+(inc (inc (inc (+ (dec 2) 5))))
+(inc (inc (inc (+ 1 5))))
+(inc (inc (inc (inc (+ (dec 1) 5)))))
+(inc (inc (inc (inc (+ 0 5)))))
+(inc (inc (inc (inc 5))))
+(inc (inc (inc 6)))
+(inc (inc 7))
+(inc 8)
+9
+#+END_SRC
+
+This is a recursive process
+
+#+BEGIN_SRC scheme
+(define (+ a b)
+  (if (= a 0)
+      b
+      (+ (dec a) (inc b))))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(+ 4 5)
+(+ 3 6)
+(+ 2 7)
+(+ 1 8)
+(+ 0 9)
+9
+#+END_SRC
+
+This is an iterative process
+
+- 1.10 
+
+#+BEGIN_SRC scheme
+(define (ackermann x y)
+  (cond ((= y 0) 0)
+        ((= x 0) (* 2 y))
+        ((= y 1) 2)
+        (else (Ackermann (- x 1)
+                         (Ackermann x (- y 1))))))
+#+END_SRC
+
+#+RESULTS:
+ackermann
+
+#+BEGIN_SRC scheme
+(ackermann 1 10)
+#+END_SRC
+
+#+RESULTS:
+1024
+
+#+BEGIN_SRC scheme
+(ackermann 2 4)
+#+END_SRC
+
+#+RESULTS:
+65536
+
+#+BEGIN_SRC scheme
+(ackermann 3 3)
+#+END_SRC
+
+#+RESULTS:
+65536
+
+#+BEGIN_SRC scheme
+(define (f n) (Ackermann 0 n))
+(define (g n) (Ackermann 1 n))
+(define (h n) (Ackermann 2 n))
+(define (k n) (* 5 n n))
+#+END_SRC
+
+
+- (f n) : 2n
+
+#+BEGIN_SRC scheme
+A (0, n)
+2n
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(ackermann 0, 4)
+#+END_SRC
+
+- (g n) : 
+
+#+BEGIN_SRC scheme
+A (1, n)
+A (0, A (1, n-1))
+A (0, A (0, A (1, n-2)))
+A (0, A (0, A (0, A (1, n - 3))))
+...
+until y = 1, in which case we have 
+2 ( 2 ( 2 ( ... ( 2)))), or 2^n
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(ackermann 1 4)
+#+END_SRC
+
+#+RESULTS:
+16
+
+- (h n) : 
+
+#+BEGIN_SRC scheme
+A (2, n)
+A (1, A (2, n - 1))
+A (1, A (1, A (2, n - 2)))
+...
+A (1, A (1, ...n..., 2))
+(2^n (2^n (2^n, ...n..., 2^n)))
+(2^n)^n
+
+We know A (1, n) ~ 2^n, and we know this will terminate when y = 1 with a 2. Therefore we will get one full set of A (1, ...) that consists of n terms per x, and each of these terms will become 2^n. Thus we get (2^n)^n
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(ackermann 2 4)
+#+END_SRC
+
+#+RESULTS:
+65536
