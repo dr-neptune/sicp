@@ -137,6 +137,7 @@ This is an iterative process
 
 #+RESULTS:
 ackermann
+ackermann
 
 #+BEGIN_SRC scheme
 (ackermann 1 10)
