@@ -18,6 +18,7 @@ A procedure is a pattern for the local evolution of a computational process. It 
 
 #+RESULTS:
 120
+120
 3628800
 1
 2
@@ -379,18 +380,46 @@ function is defined by
 
 #+RESULTS:
 335
-142
-59
-25
-11
-4
-2
-1
-fun
 
 #+BEGIN_SRC scheme
-(define (fun n)
-  (define (iter a n)
-    (cond ((< n 3) 3)
-          (else ))))
+(define (fun2 n)
+  (define (iter a b c count)
+    (cond ((< count 0) count)
+          ((= count 0) a)
+          ((= count 1) b)
+          ((= count 2) c)
+          (else (iter b c (+ c (* 2 b) (* 3 a)) (- count 1)))))
+  (iter 0 1 2 n))
 #+END_SRC
+
+#+RESULTS:
+fun2
+
+#+BEGIN_SRC scheme
+(fun2 8)
+#+END_SRC
+
+Fix this ^^^ 
+
+- Exercise 1.12 
+
+Generate nth row and kth column of pascal's triangle
+
+#+BEGIN_SRC scheme
+(define (pascal n k)
+  (cond ((= n 0) 1)
+        ((= k 0) 1)
+        ((/ (factorial n)
+            (* (factorial k)
+               (factorial (- n k)))))))
+#+END_SRC
+
+#+RESULTS:
+pascal
+
+#+BEGIN_SRC scheme
+(pascal 6 3)
+#+END_SRC
+
+Generate sum of entire nth row to the kth column
+
