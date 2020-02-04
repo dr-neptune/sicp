@@ -218,3 +218,179 @@ We know A (1, n) ~ 2^n, and we know this will terminate when y = 1 with a 2. The
 
 #+RESULTS:
 65536
+
+** 1.2.2 | Tree Recursion
+
+Another common pattern of computation is called tree recursion. 
+
+#+BEGIN_SRC scheme
+(define (fib n)
+  (cond ((= n 0) 0)
+        ((= n 1) 1)
+        (else (+ (fib (- n 1))
+                 (fib (- n 2))))))
+
+(fib 5)
+#+END_SRC
+
+#+RESULTS:
+5
+3
+2
+1
+1
+0
+fib
+
+
+#+DOWNLOADED: /tmp/screenshot.png @ 2020-02-03 20:37:41
+[[file:1.2 | Procedures and the Processes They Generate/screenshot_2020-02-03_20-37-41.png]]
+
+This procedure is instructive, but hopelessly inefficient. Almost half the computation is repeated twice. 
+
+The value of Fib(n) grows exponentially with n. More precisely, Fib(n) is the closest integer to $\phi^n / \sqrt{5}$, where 
+
+$\phi = \frac{1 + \sqrt{5}}{2} ~ 1.618$
+
+is the golden ratio, which satisfies the equation 
+
+$\phi^2 = \phi + 1$
+
+Thus the process uses a number of steps that grow exponentially with the input. On the other hand, the space required grows only linearly with the input, because we need keep track of only which nodes are above us in the tree at any point in the computation. 
+
+In general, the number of steps required by a tree-recursive process will be proportional to the number of nodes in the tree, while the space required will be proportional to the maximum depth of the tree.
+
+We can also formulate an iterative process for computing the Fibonacci numbers, in which we use a pair of integers a and b initialized to Fib(1) and Fib(0), to repeatedly apply the transformations
+
+$a <- a + b$
+$b <- a$
+
+#+BEGIN_SRC scheme
+(define (fib n)
+  (define (iter a b count)
+    (if (= count 0)
+        b
+        (iter (+ a b) a (- count 1))))
+  (iter 1 0 n))
+
+(fib 50)
+#+END_SRC
+
+#+RESULTS:
+12586269025
+21
+13
+8
+5
+3
+2
+1
+1
+0
+fib
+
+This method is a linear iteration. The difference in number of steps required by the two methods is enormous, even for small inputs.
+
+We should not conclude that tree-recursive processes are useless. When we consider processes that operate on hierarchically structured data rather than numbers, we will find that tree recursion is a natural and powerful tool.
+
+Notice how much easier and natural the first approach was in contrast to the second approach. The first is essentially a recasting of the definition into lisp, whereas the second needed to place it in the context of using 3 state variables.
+
+*Example: Counting Change*
+
+How many different ways can we make change of $1.00, given half-dollars, quarters, dimes, nickels, and pennies? 
+
+Suppose we think of the types of coins available as arranged in some order. Then the following relation holds:
+
+The number of ways to change amount a using n kinds of coins equals
+
+- the number of ways to change amount a using all but the first kind of coin, plus
+- the number of ways to change amount a - d, using all n kinds of coins where d is the denomination of the first coin 
+
+Observe that the ways to make change can be divided into two groups: those that do not use any of the first kind of coin and those that do. Therefore, the total number of ways to make change for some amount is equal to the number of ways to make change for the amount without using any of the first kind of coin, plus the number of ways to make change assuming that we do use the first kind of coin. But the latter number is equal to the number of ways to make change for the amount that remains after using a coin of the first kind. 
+
+Thus we can recursively reduce the problem of changing a given amount to the problem of changing smaller amounts using fewer kinds of coins. 
+
+- If a is exactly 0, we should count that as 1 way to make change
+- If a is less than 0, we should count that as 0 ways to make change.
+- If n is 0, we should count that as 0 ways to make change
+
+#+BEGIN_SRC scheme
+(define (count-change amount)
+  (define (first-denomination kinds-of-coins)
+    (cond ((= kinds-of-coins 1) 1)
+          ((= kinds-of-coins 2) 5)
+          ((= kinds-of-coins 3) 10)
+          ((= kinds-of-coins 4) 25)
+          ((= kinds-of-coins 5) 50)))
+  
+  (define (cc amount kinds-of-coins)
+    (cond ((= amount 0) 1)
+          ((or (< amount 0) (= kinds-of-coins 0)) 0)
+          (else (+ (cc amount (- kinds-of-coins 1))
+                   (cc (- amount 
+                          (first-denomination
+                           kinds-of-coins))
+                       kinds-of-coins)))))
+  (cc amount 5))
+#+END_SRC
+
+#+RESULTS:
+count-change
+
+The first-denomination procedure takes as input the number of kinds of coins available and returns the denomination of the first kind. 
+
+#+BEGIN_SRC scheme
+(count-change 100)
+#+END_SRC
+
+#+RESULTS:
+292
+
+This procedure generates a tree-recursive process with redundancies similar to our first implementation of fib. 
+
+generate all the ways to get our amount with one coin type
+this is 5 ways
+
+generate pennies - first denom (nickels). Then we have 95 pennies, 1 nickel, 90, 2 nickels, etc for another 20 ways. 
+
+then generate pennies - second denom (dimes). Then we have 90 pennies, 1 dime, 85 pennies, 1 nickel, 1 dime, 80 pennies, 2 nickels, 1 dime, 80 pennies, 2 dimes
+
+#+BEGIN_SRC scheme
+
+#+END_SRC
+
+- Exercise 1.1121
+
+function is defined by 
+
+
+#+DOWNLOADED: /tmp/screenshot.png @ 2020-02-03 21:22:21
+[[file:1.2 | Procedures and the Processes They Generate/screenshot_2020-02-03_21-22-21.png]] 
+
+#+BEGIN_SRC scheme
+(define (fun n)
+  (cond ((< n 3) n)
+        (else (+ (fun (- n 1))
+                 (* (fun (- n 2)) 2)
+                 (* (fun (- n 3)) 3)))))
+
+(fun 8)
+#+END_SRC
+
+#+RESULTS:
+335
+142
+59
+25
+11
+4
+2
+1
+fun
+
+#+BEGIN_SRC scheme
+(define (fun n)
+  (define (iter a n)
+    (cond ((< n 3) 3)
+          (else ))))
+#+END_SRC
