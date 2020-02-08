@@ -31,38 +31,9 @@ Add this to your init file
 
 ---------
 
-#+BEGIN_SRC scheme
-(define x "foop")
-
-(+ 1 2 3 4 5 6 7 8 9 10)
-#+END_SRC
-
-#+RESULTS:
-55
-
-#+BEGIN_SRC scheme 
-(+ 1 2 3)
-x
-#+END_SRC
-
-#+RESULTS:
-"foop"
-
-#+BEGIN_SRC scheme
-(define (square x)
-  (* x x))
-
-(define (sum-of-squares x y)
-  (+ (square x) (square y)))
-
-(sum-of-squares 109 25)
-#+END_SRC
-
-#+RESULTS:
-12506
 
 ** 1. Building Abstractions with Procedures
-
+   
 *** 1.1 | The Elements of Programming
 
  A programming language serves as a framework with which we organize our ideas about processes. We should pay particular attention to the means that the language provides for combining simple ideas to form more complex ideas.
@@ -139,7 +110,7 @@ To evaluate a combination, do the following:
 
 The evaluation rule is recursive in nature; it includes, as one of its steps, the need to invoke the rule itself. Recursion, in general, is a very powerful technique for dealing with hierarchical, treelike objects. The "percolate values upward" form of the evaluation rule is an example of a general kind of process known as tree accumulation.
 
-We take care of primitive cases by stipulating that 
+We take care of primitive cases by stipulating that
 
 - the values of numerals are the numbers that they name
 - the values of built in operators are the machine instruction sequences that carry out the corresponding operations
@@ -223,6 +194,7 @@ We could also not evaluate the operands until their value is needed. This would 
 #+END_SRC
 
 #+RESULTS:
+100
 100
 
 #+BEGIN_SRC scheme
@@ -312,7 +284,7 @@ If Ben is using an interpreter that uses normal order evaluation
 
 #+BEGIN_SRC scheme
 (test 0 (p))
-(if (= x 0) 0 y)
+(if (= x 0) 0 (p))
 (if (= 0 0) 0 (p))
 (if (#t) 0 (p))
 (0)
@@ -527,30 +499,31 @@ If y is an approximation to the cube root of x, then a better approximation is g
   (* x x x))
 
 (define (good-enough? guess x)
-  (< (abs (- (cube guess) x)) (* 0.0001 x)))
+  (< (abs (- (cube guess) x)) 0.0001))
 
 (define (cbrt x)
   (cube-rt-iter 1.0 x))
 #+END_SRC
 
+#+RESULTS:
+cbrt
+cbrt
+cbrt
+cbrt
+
 This doesn't work for 0 or negative values. Return to it 
 
 #+BEGIN_SRC scheme
-(cube-rt-iter 1.0 (-2))
+(cube-rt-iter 1.0 2)
 #+END_SRC
 
-#+RESULTS:
-
 #+BEGIN_SRC scheme
-(cbrt 8)
+(cbrt -24)
 #+END_SRC
 
 #+BEGIN_SRC scheme
 (cbrt 0.01)
 #+END_SRC
-
-#+RESULTS:
-0.21544348341456257
 
 **** 1.1.8 | Procedures as Black Box Algorithms
 

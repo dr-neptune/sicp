@@ -1,6 +1,6 @@
 * 1.2 | Procedures and the Processes They Generate
   :PROPERTIES:
-  :header-args: :session intro :results verbatim raw
+  :header-args: :session scheme :results verbatim raw
   :END:
 
 A procedure is a pattern for the local evolution of a computational process. It specifies how each stage of the process is built upon the previous stage. We would like to be able to make statements about the overall, or global, behavior of a process whose local evolution has been specified by a procedure. 
@@ -569,6 +569,7 @@ b^n = b * (b^n-1) if n is odd
 #+END_SRC
 
 #+RESULTS:
+fast-expt
 #[constant 40 #x2]
 
 
@@ -586,3 +587,79 @@ b^n = b * (b^n-1) if n is odd
 
 #+RESULTS:
 16
+
+- Exercise 1.16
+
+Using the observation that (b^n/2)^2 = (b^2)^(n/2), keep, along with the exponent *n* and base *b*, an additional state variable *a*, and define the state transformation in such a way that the product ab^n is unchanged from state to state. At the beginning of the process *a* is taken to be 1 and the answer is given by the value of *a* at the end of the process.
+
+#+DOWNLOADED: /tmp/screenshot.png @ 2020-02-08 10:18:02
+[[file:1.2 | Procedures and the Processes They Generate/screenshot_2020-02-08_10-18-02.png]]
+
+#+BEGIN_SRC scheme
+(define (exp-iter b n)
+  (define (iter b n a)
+    (cond ((= n 0) a)
+          ((even? n) (iter (square b) (/ n 2) a))
+          (else (iter b (- n 1) (* b a)))))
+  (iter b n 1))
+#+END_SRC
+
+#+RESULTS:
+exp-iter
+
+#+BEGIN_SRC scheme
+(exp-iter 1 5)
+#+END_SRC
+
+#+RESULTS:
+1
+0
+1024
+32
+16
+8
+
+- 1.17 
+
+#+BEGIN_SRC scheme
+(define (times a b)
+  (if (= b 0)
+      0
+      (+ a (times a (- b 1)))))
+
+(define (double x)
+  (+ x x))
+
+(define (halve x)
+  (/ x 2))
+
+(define (fast-mult a b)
+  (cond ((= b 1) a)
+        ((even? b) (double (fast-mult a (halve b))))
+        (else (+ a (fast-mult a (- b 1))))))
+#+END_SRC
+
+#+RESULTS:
+fast-mult
+fast-mult
+ 
+#+BEGIN_SRC scheme
+(fast-mult 100 100)
+#+END_SRC
+
+#+RESULTS:
+10000
+
+#+BEGIN_SRC scheme
+(define (fast-mult-iter a b)
+  (define (iter b c)
+    (cond ((= b 1) (+ a c))
+          ((even? b) (iter (halve b) (double c)))
+          (else (iter (- b 1) (+ c a)))))
+  (iter b 0))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(fast-mult-iter 2 10)
+#+END_SRC
+
