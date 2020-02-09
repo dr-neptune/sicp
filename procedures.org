@@ -570,6 +570,8 @@ b^n = b * (b^n-1) if n is odd
 
 #+RESULTS:
 fast-expt
+fast-expt
+fast-expt
 #[constant 40 #x2]
 
 
@@ -639,16 +641,14 @@ exp-iter
         (else (+ a (fast-mult a (- b 1))))))
 #+END_SRC
 
-#+RESULTS:
-fast-mult
-fast-mult
- 
 #+BEGIN_SRC scheme
 (fast-mult 100 100)
 #+END_SRC
 
 #+RESULTS:
 10000
+
+- Exercise 1.18
 
 #+BEGIN_SRC scheme
 (define (fast-mult-iter a b)
@@ -660,6 +660,148 @@ fast-mult
 #+END_SRC
 
 #+BEGIN_SRC scheme
-(fast-mult-iter 2 10)
+(fast-mult-iter 2 7)
 #+END_SRC
 
+#+BEGIN_SRC scheme
+(define (fast-mult-iter a b)
+  (define (iter b c)
+    (cond ((= b 1) (+ a c))
+          ((even? b) (iter (halve b) (double c)))
+          (else (iter (- b 1) (+ c a)))))
+  
+  (cond ((even? b)
+         (iter b 1))
+        (else (iter b 0))))
+#+END_SRC
+
+#+RESULTS:
+fast-mult-iter
+fast-mult-iter
+
+#+BEGIN_SRC scheme
+(fast-mult-iter 2)
+#+END_SRC
+
+#+RESULTS:
+14
+10
+18
+18
+
+This works for values of b up to 10, then it breaks.
+
+After much trepidation and watching this:
+
+https://www.youtube.com/watch?v=HJ_PP5rqLg0
+
+
+#+BEGIN_SRC scheme
+(define (halve x)
+  (floor (/ x 2)))
+
+(define (russian-mult a b)
+  (define (iter a b c)
+    (cond ((= b 0) c)
+          ((even? b) (iter (double a) (halve b) c))
+          (else (iter (double a) (halve b) (+ a c)))))
+  (iter a b 0))
+#+END_SRC
+
+#+RESULTS:
+russian-mult
+
+#+BEGIN_SRC scheme
+(halve 4)
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(russian-mult 22 100)
+#+END_SRC
+
+#+RESULTS:
+2200
+200
+20
+12
+10
+
+- Exercise 1.19
+
+Recall the transformation of the state variables a and b in the fib-iter process of section 1.2.2: 
+
+a <- a + b
+b <- a 
+
+Let this be called T, and observe that applying T over and over again n times, starting with a = 1 and b = 0 produces the pair Fib(n + 1) and Fib(n)
+
+
+#+BEGIN_SRC scheme
+(define (fib n)
+  (define (iter a b n)
+    (cond ((= n 0) b)
+          (else (iter (+ a b) a (- n 1)))))
+  (iter 1 0 n))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(fib 10)
+#+END_SRC
+
+In other words, the Fibonacci numbers are produced by applying T^n, the nth power of the transformation T, starting with the pair (1, 0). 
+
+Now consider T to be a special case of p = 0 and q = 1 in a family of transformations T_pq where T_pq transforms the pair (a, b) according to
+
+a <- bq + aq + ap
+b <- bp + aq 
+
+Show that if we apply such a transformation T_pq twice, the effect is the same as using a single transformation T_p'q' of the same form, and compute p' and q' in terms of p and q. 
+
+This gives us an explicit way to square these transformations, and thus we can compute T^n using successive squaring as in the fast-exp procedure.
+
+** 1.2.5 | Greatest Common Divisors
+
+The GCD of two integers a and b is defined to be the largest integer that divides both a and b with no remainder. 
+
+The idea of *Euclid's Algorithm* is based on the observation that, if r is the remainder when a is divided by b, then the common divisors of a and b are precisely the same as the common divisors of b and r. 
+
+Thus, we can use the equation GCD(a, b) = GCD(b, r) to successively reduce the problem of computing a GCD to the problem of computing the GCD of smaller and smaller pairs of integers. 
+
+For example: 
+
+GCD(206, 40) = GCD(40, 6)
+             = GCD(6, 4)
+             = GCD(4, 2)
+             = GCD(2, 0)
+             = 2
+
+It is possible to show that starting with any two positive integers and performing repeated reductions will always eventually produce a pair where the second number is 0 and the first number is the GCD. 
+
+#+BEGIN_SRC scheme
+(define (gcd a b)
+  (if (= b 0)
+      a
+      (gcd b (remainder a b))))
+#+END_SRC
+
+#+RESULTS:
+gcd
+
+#+BEGIN_SRC scheme
+(gcd 206 40)
+#+END_SRC
+
+#+RESULTS:
+2
+
+The fact that the number of steps required by Euclid's Algorithm has logarithmic growth bears an interesting relation to the Fibonacci numbers:
+
+*Lame's Theorem*
+
+If Euclid's algorithm requires k steps to compute the GCD of some pair, then the smaller number in the pair must be greater than or equal to the kth Fibonacci number
+
+#+BEGIN_SRC scheme
+(fib 4)
+#+END_SRC
+
+We can use Lame's theorem to get an order of growth estimate for Euclid's algorithm. 
