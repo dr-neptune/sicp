@@ -88,9 +88,6 @@ Similarly we wish to make procedures that deal with the concept itself rather th
          (sum term (next a) next b))))
 #+END_SRC
 
-#+RESULTS:
-sum
-
 We can use sum just as we would any other procedure.
 
 For example, to define sum-cubes
@@ -103,9 +100,6 @@ For example, to define sum-cubes
 
 (sum-cubes 1 10)
 #+END_SRC
-
-#+RESULTS:
-3025
 
 With the aid of an identity procedure to compute the term, we can define sum-integers in terms of sum
 
@@ -164,4 +158,42 @@ We can express this directly as a procedure:
 
 The exact value of the integral of cube between 0 and 1 is 1/4. 
 
+*** Exercise 1.29
 
+Simpson's Rule is a more accurate method of numerical integration than the method illustrated above. 
+
+$\int_a^b f = \frac{h}{3}(y_0 + 4y_1 + 2y_2 + 4y_3 + 2y_4 + ... + 2y_{n-2} + 4y_{n-1} + y_n)$
+
+where $h = \frac{(b - a)}{n}$ for some even integer n, and
+$y_k = f(a + kh)$/ 
+
+#+BEGIN_SRC scheme
+(define (even? n)
+  (= (remainder n 2) 0))
+
+(define (sum term a next b)
+  (if (> a b)
+      0
+      (+ (term a)
+         (sum term (next a) next b))))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(define (simpsons-rule f a b n)
+  (define h (/ (- b a) n))
+
+  (define (k-term k)
+    (cond ((= k 0) 1.0)
+          ((= k n) 1.0)
+          ((even? k) 2.0)
+          (else 4.0)))
+  
+  (define (y k)
+    (+ a (* (k-term k) h)))
+  
+  (* (sum f (y n) inc n) (/ h 3.0)))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(simpsons-rule cube 0 1.0 3)
+#+END_SRC
