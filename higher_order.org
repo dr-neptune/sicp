@@ -41,6 +41,7 @@ Compute the sum of the cubes of the integers in the given range
 
 #+RESULTS:
 1625525
+1625525
 
 Compute the sum of a sequence of terms in the series
 
@@ -88,6 +89,9 @@ Similarly we wish to make procedures that deal with the concept itself rather th
          (sum term (next a) next b))))
 #+END_SRC
 
+#+RESULTS:
+sum
+
 We can use sum just as we would any other procedure.
 
 For example, to define sum-cubes
@@ -114,6 +118,7 @@ With the aid of an identity procedure to compute the term, we can define sum-int
 #+END_SRC
 
 #+RESULTS:
+55
 55
 
 and pi-sum
@@ -171,6 +176,9 @@ $y_k = f(a + kh)$/
 (define (even? n)
   (= (remainder n 2) 0))
 
+(define (inc x)
+  (+ x 1))
+
 (define (sum term a next b)
   (if (> a b)
       0
@@ -179,21 +187,59 @@ $y_k = f(a + kh)$/
 #+END_SRC
 
 #+BEGIN_SRC scheme
-(define (simpsons-rule f a b n)
+(define (simpson-int f a b n)
   (define h (/ (- b a) n))
-
-  (define (k-term k)
-    (cond ((= k 0) 1.0)
-          ((= k n) 1.0)
-          ((even? k) 2.0)
-          (else 4.0)))
+  (define (y k) (f (+ a (* k h))))
+  (define (k-cond k)
+    (* (cond ((or (= k 0) (= k n)) 1)
+             ((even? k) 2)
+             (else 4))
+       (y k)))
   
-  (define (y k)
-    (+ a (* (k-term k) h)))
-  
-  (* (sum f (y n) inc n) (/ h 3.0)))
+  (* (sum k-cond a inc n)
+     (/ h 3)))
 #+END_SRC
+
+#+RESULTS:
+simpson-int
 
 #+BEGIN_SRC scheme
-(simpsons-rule cube 0 1.0 3)
+(simpson-int cube 0 1 1000)
 #+END_SRC
+
+#+RESULTS:
+1/4
+
+*** Exercise 1.30
+
+The sum procedure above generates a linear recursion. The procedure can be rewritten so that the sum is performed iteratively. 
+
+#+BEGIN_SRC scheme
+(define (sum term a next b)
+  (define (iter a result)
+    (if (> a b)
+        0
+        (+ (term result) (iter (next a) result)))))
+#+END_SRC
+
+#+RESULTS:
+sum
+
+#+BEGIN_SRC scheme
+(define (sum term a next b)
+  (define (iter a result)
+    (if (> a b)
+        result
+        (iter (next a) (+ result (term a)))))
+  (iter a 0))
+#+END_SRC
+
+#+RESULTS:
+sum
+
+#+BEGIN_SRC scheme
+(sum identity 0 inc 5)
+#+END_SRC
+
+*** Exercise 1.31 
+
