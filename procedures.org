@@ -928,6 +928,9 @@ To implement this, we need a procedure that computes the exponential of a number
           m))))
 #+END_SRC
 
+#+RESULTS:
+expmod
+
 This is very similar to the fast-expt procedure from before in that it uses successive squaring so that the number of steps grows logarithmically with the exponent.
 
 The Fermat test is performed by choosing at random a number a between 1 and n-1 inclusive and checking whether the remainder mod n of the nth power of a is equal to a. The random number a is chosen using the scheme primitive random. random returns an integer between 1 and its given parameter.
@@ -940,6 +943,9 @@ The Fermat test is performed by choosing at random a number a between 1 and n-1 
 
 (fermat-test 6)
 #+END_SRC
+
+#+RESULTS:
+#t
 
 The following procedure runs the test a given number of times, as specified by a parameter. Its value is true if the test succeeds every time, false otherwise
 
@@ -959,8 +965,6 @@ Let's try the second Cullen prime (of the form n*2^n + 1)
 (fast-prime? 393050634124102232869567034555427371542904833 5)
 #+END_SRC
 
-#+RESULTS:
-#t
 
 *** Exercise 1.21 
 
