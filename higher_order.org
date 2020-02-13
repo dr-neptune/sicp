@@ -729,3 +729,181 @@ The object 2 is not applicable.
 
 ** 1.3.3 | Procedures as General Methods
 
+With higher order procedures we begin to see a more powerful kind of abstraction: procedures used to express general methods of computation, independent of the particular functions involved.
+
+*** Finding Roots of Equations by the Half-Interval Method
+
+The half-interval method is a technique for finding roots of an equation $f(x) = 0$, where function is continuous. 
+
+The idea is the following:
+
+If we have points a and b such that $f(a) < 0 < f(b)$, then f must have at least one zero between a and b. 
+
+To locate a 0
+
+- let x be the average of a and b and compute f(x) 
+- if f(x) > 0, then f has a zero between a and x
+- if f(x) < 0, then f has a zero between x and b
+- continue this until the interval is small enough
+
+Since the interval of uncertainty is reduced by half at each step of the process, the number of steps required grows at theta(log(L/T)) where L is the length of the original interval and T is the error tolerance. 
+
+#+BEGIN_SRC scheme
+(define (average x y)
+  (/ (+ x y) 2))
+
+(define (positive? x)
+  (> x 0))
+
+(define (negative? x)
+  (not (positive? x)))
+
+(define (search f neg pos)
+  (define (close-enough? x y)
+    (< (abs (- x y))
+       0.001))
+  (let ((midpoint (average neg pos)))
+    (if (close-enough? neg pos)
+        midpoint
+        (let ((test (f midpoint)))
+          (cond ((positive? test)
+                 (search f neg midpoint))
+                ((negative? test)
+                 (search f midpoint pos))
+                (else midpoint))))))
+#+END_SRC
+
+#+RESULTS:
+search
+
+This can be awkward to use since we may end up supplying a and b values in which the evaluation of the function at these points does not contain 0. Therefore, we should use a driver function
+
+#+BEGIN_SRC scheme
+(define (half-interval f a b)
+  (let ((a-val (f a))
+        (b-val (f b)))
+    (cond ((and (negative? a-val)
+                (positive? b-val))
+           (search f a b))
+          ((and (negative? b-val)
+                (positive? a-val))
+           (search f b a))
+          (else
+           (error "Values are not of opposite sign" a b)))))
+#+END_SRC
+
+#+RESULTS:
+half-interval
+
+
+#+BEGIN_SRC scheme
+(half-interval cube -1 4)
+#+END_SRC
+
+approximate pi as the root between 2 and 4 of sin x = 0
+
+#+BEGIN_SRC scheme
+(half-interval sin 2.0 4.0)
+#+END_SRC
+
+#+RESULTS:
+3.14111328125
+
+Here is the root of the equation $x^3 - 2x - 3 = 0$
+
+#+BEGIN_SRC scheme
+(half-interval (lambda (x) (- (cube x) (* 2 x) 3))
+               1.0 2.0)
+#+END_SRC
+
+#+RESULTS:
+1.89306640625
+
+*** Finding fixed points of functions
+
+A number x is called a fixed point of a function if x satisfies the equation $f(x) = x$. For some functions we can locate a fixed point by beginning with an initial guess and applying function repeatedly,
+
+$f(x), f(f(x)), f(f(f(x))), ...$
+
+until the value doesn't change much. 
+
+Using this idea we can devise a procedure that takes as inputs a function and an initial guess and produces an approximation to the fixed point of the function.
+
+#+BEGIN_SRC scheme
+(define tolerance 0.00001)
+
+(define (fixed-point f first-guess)
+  (define (close-enough? v1 v2)
+    (< (abs (- v1 v2))
+       tolerance))
+  (define (try guess)
+    (let ((next (f guess)))
+      (if (close-enough? guess next)
+          next
+          (try next))))
+  (try first-guess))
+#+END_SRC
+
+#+RESULTS:
+fixed-point
+
+#+BEGIN_SRC scheme
+(fixed-point cos 1.0)
+#+END_SRC
+
+#+RESULTS:
+0.7390822985224024
+
+#+BEGIN_SRC scheme
+(fixed-point (lambda (y) (+ (sin y) (cos y)))
+             1.0)
+#+END_SRC
+
+#+RESULTS:
+1.2587315962971173
+
+#+BEGIN_SRC scheme
+(define (sqrt x)
+  (fixed-point (lambda (y) (/ x y)) 1.0))
+#+END_SRC
+
+#+RESULTS:
+sqrt
+
+Unfortunately, this does not converge.
+
+y_1
+y_2 = x / y_1
+y_3 = x / y_2 = x / (x / y_1) = y_1 
+
+This results in an infinite loop in which y_1 and y_2 repeat over and over, oscillating.
+
+One way to control such oscillations is to prevent the guesses from changing so much. Since the answer is always between our guess y and x/y, we can make a new guess that is not as far from y as x/y by averaging y with x/y so that the next guess after y is $y \mapsto \frac{1}{2}(y + \frac{x}{y})$ instead of x/y. 
+
+The process of making such a sequence of guesses is simply the process of looking for a fixed point of this. 
+
+#+BEGIN_SRC scheme
+(define (sqrt x)
+  (fixed-point (lambda (y) (average y (/ x y))) 1.0))
+#+END_SRC
+
+#+RESULTS:
+sqrt
+sqrt
+
+#+BEGIN_SRC scheme
+(sqrt 9)
+#+END_SRC
+
+#+RESULTS:
+3
+
+y = x / y 
+2y = x / y + y 
+y = 1/2(x/y + y)
+
+This approach of averaging successive approximations to the solution, a technique called average damping, often aids the convergence of fixed-point searches
+
+*** Exercise 1.35 
+
+
