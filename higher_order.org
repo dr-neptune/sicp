@@ -1028,6 +1028,9 @@ This took 10 steps, spitting out an answer at 11
   (recur 1))
 #+END_SRC
 
+#+RESULTS:
+cont-frac
+
 #+BEGIN_SRC scheme
 (cont-frac (lambda (i) 1.0)
            (lambda (i) 1.0)
@@ -1037,6 +1040,7 @@ This took 10 steps, spitting out an answer at 11
 #+RESULTS:
 .6180555555555556
 .6180555555555556
+.6180555555555556
 
 k must be at least 11 to be accurate to 4 decimal places.
 
@@ -1044,28 +1048,72 @@ k must be at least 11 to be accurate to 4 decimal places.
 
 Iterative Process
 
+In order to iteratively calculate this, we need to work from the last term to the first.
+
+We can think of this as follows:
+
+first case: (n k) / (d k)
+
+Then we perform the following transformation:
+
+(n (k - 1)) / ((d (k - 1)) + (first case))
+
+until we reach a = 0, then we return our result.
+
 #+BEGIN_SRC scheme
 (define (cont-frac-iter n d k)
   (define (iter a result)
-    (if (= a k)
+    (if (= a 0)
         result
-        (iter (+ a 1)
-              (/ (n (- k a))
-                 (+ (d (- k a))
+        (iter (- a 1)
+              (/ (n (- k 1))
+                 (+ (d (- k 1))
                     result)))))
-  (iter 0 0))
+  (iter k (/ (n k) (d k))))
 #+END_SRC
 
 #+RESULTS:
-cont-frac-iter
-cont-frac-iter
 cont-frac-iter
 
 #+BEGIN_SRC scheme
 (cont-frac-iter (lambda (i) 1.0)
                 (lambda (i) 1.0)
-                10)
+                20)
+#+END_SRC
+
+*** Exercise 1.38
+*** Exercise 1.39
+
+
+#+BEGIN_SRC scheme
+(define (tan-cf x k)
+  (cont-frac (lambda (x) (if (= x 1)
+                        x
+                        (- (* x x))))
+             (lambda (x) (- (* 2.0 x) 1))
+             k))
 #+END_SRC
 
 #+RESULTS:
-.6179775280898876
+tan-cf
+tan-cf
+
+#+BEGIN_SRC scheme
+(tan-cf 2.0 10000)
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(define (tan-cf x k)
+  (cont-frac (lambda (i)
+               (if (= i 1)
+                   x
+                   (- (* x x))))
+             (lambda (i)
+               (- (* i 2) 1))
+             k))
+#+END_SRC
+
+#+RESULTS:
+tan-cf
+
+This doesn't work correctly :/ 
