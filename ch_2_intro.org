@@ -1,0 +1,46 @@
+* Building Abstractions with Data
+:PROPERTIES:
+:header-args: :session sess :results output value
+:END:
+
+** Intro 
+
+   In this chapter we will look at more complex data. Whereas our focus in chapter 1 was on building abstractions by combining procedures to form compound procedures, we focus on the means a programming language has for buildin abstractions by combining data objects to form compound data.
+
+   The general technique of isolating the parts of a program that deal with how data objects are represented from the part of the program that deals with how data objects are used is a powerful design methodology called data abstraction. 
+
+
+Consider the idea of forming a linear combination $ax + by$. This is straight forward if our inputs are numbers:
+
+#+BEGIN_SRC scheme
+(define (linear-combination a b x y)
+  (+ (* a x)
+     (* b y)))
+#+END_SRC
+
+#+RESULTS:
+
+#+BEGIN_SRC scheme
+(linear-combination 1 2 3 4)
+#+END_SRC
+
+#+RESULTS:
+: 11
+
+Suppose we would like to express the idea that one can form linear combinations whenever addition and multiplication are defined -- for rational numbers, complex numbers, polynomials, whatever.
+
+#+BEGIN_SRC scheme
+(define (linear-combination a b x y)
+  (add (mul a x)
+       (mul b y)))
+#+END_SRC
+
+where add and mul are more complex procedures that perform the appropriate operations for whatever kinds of data we pass in as arguments. This is why it is important that our programming language provide the ability to manipulate compound objects directly; otherwise there is no way for a procedure to pass its arguments along to add and mul without having to know their detailed structure.
+
+As with compound procedures, the main issue to be addressed is that of abstraction as a technique for coping with complexity, and we will see how data abstraction allows us to erect suitable abstraction barriers between different parts of a program.
+
+One key idea in dealing with compound data is the notion of a closure -- that the glue we use for combining data objects should allow us to combine not only primitive data objects but compound data objects as well. 
+
+Another key idea is that compound data objects can serve as conventional interfaces for combining proram modules in mix and match ways. 
+
+We will augment the representational power of our language by introducing symbolic expressions -- data whose elementary parts can be arbitrary symbols rather than only numbers.

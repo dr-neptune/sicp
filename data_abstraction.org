@@ -1,0 +1,12 @@
+* Data Abstraction
+:PROPERTIES:
+:header-args: :session scheme :results verbatim raw
+:END:
+
+Data abstraction is a methodology that enables us to isolate how a compound data object is used from the details of how it is constructed from more primitive data objects.
+
+We wish to structure our programs such that they use compound data objects that operate on "abstract data". Programs should use data in such a way as to make -no- assumptions about the data that is not strictly necessary for performing the task at hand. 
+
+** Arithmetic Operations for Rational Numbers
+
+
