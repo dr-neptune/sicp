@@ -45,12 +45,7 @@ Lets assume that we already have a way of constructing a rational number from a 
 #+END_SRC
 
 #+RESULTS:
-: 
-: ;Unexpected read restart on: #[textual-i/o-port 38 for console]
-: ;To continue, call RESTART with an option number:
-: ; (RESTART 1) => Return to read-eval-print level 1.
-: 
-: 2 error> 
+: #[constant 40 #x2]
 
 *** Pairs
 
@@ -420,4 +415,101 @@ This example demonstrates that the ability to manipulate procedures as objects a
 #+END_SRC
 
 *** Exercise 2.5 
+
+I'm not sure I understand the question entirely. It seems to me that every non negative integer can not be represented as 2^a3^b. Consider 5, or 10. 
+
+#+BEGIN_SRC scheme
+(define (largest-power a i)
+  (if (= (remainder i a) 0)
+      (+ 1 (largest-power a (/ i a)))
+      0))
+
+(define (car i)
+  (largest-power 2 i))
+
+(define (cdr i)
+  (largest-power 3 i))
+#+END_SRC
+
+#+RESULTS:
+: #[constant 40 #x2]
+
+#+BEGIN_SRC scheme
+(largest-power 2 64)
+#+END_SRC
+
+#+RESULTS:
+: 6
+
+#+BEGIN_SRC scheme
+(largest-power 3 36)
+#+END_SRC
+
+#+RESULTS:
+: 2
+
+*** Exercise 2.6 
+
+#+BEGIN_SRC scheme
+(define zero (lambda (f)
+               (lambda (x) x)))
+
+(define (add-1 n)
+  (lambda (f)
+    (lambda (x)
+      (f ((n f) x)))))
+#+END_SRC
+
+Define one and two directly. 
+
+one 
+
+#+BEGIN_SRC scheme
+(add-1 zero)
+
+(lambda (f)
+  (lambda (x)
+    (f ((zero f) x))))
+
+(lambda (f)
+  (lambda (x)
+    (f (((lambda (f)
+           (lambda (x) x)) f) x))))
+
+; zero is the function that returns its arg given a function f
+(lambda (f)
+  (lambda (x)
+    (f x)))
+#+END_SRC
+
+two 
+
+#+BEGIN_SRC scheme
+(add-1 one)
+
+(add-1 (lambda (f)
+         (lambda (x)
+           (f x))))
+
+(lambda (f)
+  (lambda (x)
+    (f (((lambda (f)
+           (lambda (x)
+             (f x))) f) x))))
+
+(lambda (f)
+  (lambda (x)
+    (f (f x))))
+#+END_SRC
+
+Essentially, we are nested our functions in tandem with the number.
+
+So n would look like
+
+#+BEGIN_SRC scheme
+(lambda (f)
+  (lambda (x)
+    (f ( f ( f ( ...(n-5 times)... (f (f x))))))))
+#+END_SRC
+
 
