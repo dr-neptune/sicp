@@ -537,6 +537,13 @@ So n would look like
   (mul-interval x
                 (make-interval (/ 1.0 (upper-bound y))
                                (/ 1.0 (lower-bound y)))))
+
+(define (print-interval x)
+  (display '"[")
+  (display (lower-bound x))
+  (display '", ")
+  (display (upper-bound x))
+  (display '"]"))
 #+END_SRC
 
 **** Exercise 2.7
@@ -556,23 +563,30 @@ Define selectors upper-bound and lower-bound to complete the implementation.
        (cdr i)))
 #+END_SRC
 
+#+RESULTS:
+: #[constant 40 #x2]
+
 **** Exercise 2.8 
 
 Describe how the difference of two intervals may be computed. Define a corresponding subtraction procedure called sub-interval
 
+What do we do is a is a strict subset of b in b - a? How does one return two intervals?
+
 #+BEGIN_SRC scheme
 (define (sub-interval a b)
-  (make-interval (- (max (lower-bound a)
-                         (lower-bound b))
-                    (min (lower-bound a)
-                         (lower-bound b)))
-                 (- (max (upper-bound a)
-                         (upper-bound b))
-                    (min (upper-bound a)
-                         (upper-bound b)))))
+  (add-interval a (make-interval (- (upper-bound b))
+                                 (- (lower-bound b)))))
 #+END_SRC
 
-(5, 3) - (2, 1)
+#+RESULTS:
+: sub-interval
 
-(4, 1)
+#+BEGIN_SRC scheme :results output
+(print-interval (sub-interval (make-interval 2 3)
+                              (make-interval 3 4)))
+#+END_SRC
+
+**** Exercise 2.9 
+
+The width of an interval is half the distance between its upper and lower bounds. 
 
