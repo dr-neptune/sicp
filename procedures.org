@@ -1,7 +1,7 @@
 * 1.2 | Procedures and the Processes They Generate
-  :PROPERTIES:
-  :header-args: :session scheme :results verbatim raw
-  :END:
+:PROPERTIES:
+:header-args: :session scheme :results value
+:END:
 
 A procedure is a pattern for the local evolution of a computational process. It specifies how each stage of the process is built upon the previous stage. We would like to be able to make statements about the overall, or global, behavior of a process whose local evolution has been specified by a procedure. 
 
@@ -235,6 +235,7 @@ Another common pattern of computation is called tree recursion.
 #+END_SRC
 
 #+RESULTS:
+: 5
 5
 3
 2
@@ -419,8 +420,8 @@ pascal
 
 Generate sum of entire nth row to the kth column
 
+*** Exercise 1.13 
 ** 1.2.3 | Orders of Growth
-
 *** Exercise 1.15
 
 The sine of an angle (specified in radians) can be computed by making use of the approximation sin x ~ x if x is sufficiently small, and the trigonometric identity 
@@ -565,6 +566,7 @@ b^n = b * (b^n-1) if n is odd
 #+END_SRC
 
 #+RESULTS:
+: #[constant 40 #x2]
 fast-expt
 fast-expt
 fast-expt
@@ -741,11 +743,15 @@ Let this be called T, and observe that applying T over and over again n times, s
 #+END_SRC
 
 #+RESULTS:
+: fib
 fib
 
 #+BEGIN_SRC scheme
 (fib 10)
 #+END_SRC
+
+#+RESULTS:
+: 55
 
 In other words, the Fibonacci numbers are produced by applying T^n, the nth power of the transformation T, starting with the pair (1, 0). 
 
@@ -784,6 +790,7 @@ It is possible to show that starting with any two positive integers and performi
 #+END_SRC
 
 #+RESULTS:
+: gcd
 gcd
 
 #+BEGIN_SRC scheme
@@ -791,6 +798,7 @@ gcd
 #+END_SRC
 
 #+RESULTS:
+: 2
 2
 
 The fact that the number of steps required by Euclid's Algorithm has logarithmic growth bears an interesting relation to the Fibonacci numbers:
@@ -802,6 +810,9 @@ If Euclid's algorithm requires k steps to compute the GCD of some pair, then the
 #+BEGIN_SRC scheme
 (fib 4)
 #+END_SRC
+
+#+RESULTS:
+: 3
 
 We can use Lame's theorem to get an order of growth estimate for Euclid's algorithm. If the process takes k steps, then we must have n >= Fib(k) ~ \phi^k / \sqrt(5). Therefore the number of steps k grows as the logarithm (to the base phi) of n. Hence the order of growth is theta(log n).
 
@@ -816,6 +827,9 @@ The process that a procedure generates is of course dependent on the rules used 
       a
       (gcd b (remainder a b))))
 #+END_SRC
+
+#+RESULTS:
+: gcd
 
 Using the substitution method, illustrate the process generated in evaluating gcd(206 40) and indicate the remainder operations that are actually performed. How many remainder operations are actually performed in the normal order evaluation? 
 
@@ -861,6 +875,9 @@ For applicative order
 2
 #+END_SRC
 
+#+RESULTS:
+: 2
+
 For the applicative order, we will call remainder 4 times
 
 ** 1.2.6 | Testing for Primality
@@ -889,6 +906,9 @@ The following program finds the smallest integral divisor (greater than 1) of a 
 (define (prime? n)
   (= n (smallest-divisor n)))
 #+END_SRC
+
+#+RESULTS:
+: #[constant 40 #x2]
 
 The end test for find-divisor is based on the fact that if n is not prime, it must have a divisor less than or equal to sqrt(n). This means that the algorithm need only test divisors between 1 and sqrt(n). Consequently, the number of steps required to identify n as prime will have order of growth theta(sqrt(n))
 
@@ -929,6 +949,7 @@ To implement this, we need a procedure that computes the exponential of a number
 #+END_SRC
 
 #+RESULTS:
+: expmod
 expmod
 
 This is very similar to the fast-expt procedure from before in that it uses successive squaring so that the number of steps grows logarithmically with the exponent.
@@ -945,7 +966,7 @@ The Fermat test is performed by choosing at random a number a between 1 and n-1 
 #+END_SRC
 
 #+RESULTS:
-#t
+: #t
 
 The following procedure runs the test a given number of times, as specified by a parameter. Its value is true if the test succeeds every time, false otherwise
 
@@ -957,6 +978,7 @@ The following procedure runs the test a given number of times, as specified by a
 #+END_SRC
 
 #+RESULTS:
+: fast-prime?
 fast-prime?
 
 Let's try the second Cullen prime (of the form n*2^n + 1)
@@ -964,6 +986,9 @@ Let's try the second Cullen prime (of the form n*2^n + 1)
 #+BEGIN_SRC scheme
 (fast-prime? 393050634124102232869567034555427371542904833 5)
 #+END_SRC
+
+#+RESULTS:
+: #t
 
 
 *** Exercise 1.21 
@@ -975,6 +1000,7 @@ Use the smallest-divisor procedure to find the smallest-divisor of each of the f
 #+END_SRC
 
 #+RESULTS:
+: 1
 1999999
 199999
 19999
@@ -1004,6 +1030,9 @@ The following procedure, when called with an integer n, prints n and checks to s
   (display elapsed-time))
 #+END_SRC
 
+#+RESULTS:
+: #[constant 40 #x2]
+
 Using this procedure, write a procedure search-for-primes that checks the primality of consecutive odd integers in a specified range. Use your procedures to find the three smallest primes larger than 1000; 10000; 100000; 1000000
 
 #+BEGIN_SRC scheme
@@ -1020,6 +1049,13 @@ Using this procedure, write a procedure search-for-primes that checks the primal
         ((even? start)
          (iter (+ start 1) end 3))
         (else (iter start end 3))))
+#+END_SRC
+
+#+RESULTS:
+: search-for-primes
+
+#+BEGIN_SRC scheme :results output
+(search-for-primes 10000 99999)
 #+END_SRC
 
 ---------------------------------------------------------------
@@ -1067,6 +1103,7 @@ We expect that each jump should take around sqrt(10) ~ 3.16 times as long.
 #+END_SRC
 
 #+RESULTS:
+: 9.985600000000002
 9.985600000000002
 
 The jump for each is around 3, and the jump from 12 to 14 is around 3.16^2
@@ -1089,4 +1126,144 @@ The jump for each is around 3, and the jump from 12 to 14 is around 3.16^2
 #+END_SRC
 
 #+RESULTS:
+: #[constant 40 #x2]
 report-prime
+
+*** Exercise 1.24 
+
+See start-prime-test above. 
+
+#+BEGIN_SRC scheme :results output
+(search-for-primes 1000000 9999999)
+#+END_SRC
+
+#+RESULTS:
+: 1000003
+: 1000033
+: 1000037
+: 
+: 1000039 *** 0.
+
+*** Exercise 1.26 
+
+*** Exercise 1.25 
+
+Our previous expmod: 
+
+#+BEGIN_SRC scheme
+(define (expmod base exp m)
+  (cond ((= exp 0) 1)
+        ((even? exp)
+         (remainder (square (expmod base (/ exp 2) m))
+                    m))
+        (else
+         (remainder 
+          (* base (expmod base (- exp 1) m))
+          m))))
+#+END_SRC
+
+#+RESULTS:
+: expmod
+
+#+BEGIN_SRC scheme
+(define (expmod2 base exp m)
+  (remainder (fast-expt base exp) m))
+#+END_SRC
+
+#+RESULTS:
+: expmod2
+
+Let's look at the definition of fast-expt and write a square function that shows the intermediate steps.
+
+#+BEGIN_SRC scheme
+(define (square x)
+  (display "square ")
+  (display x)
+  (newline)
+  (* x x))
+
+(define (fast-expt b n)
+  (cond ((= n 0) 1)
+        ((even? n)
+         (square (fast-expt b (/ n 2))))
+        (else (* b (fast-expt b (- n 1))))))
+#+END_SRC
+
+#+RESULTS:
+: #[constant 40 #x2]
+
+#+BEGIN_SRC scheme :results output
+(expmod 8 50 3)
+#+END_SRC
+
+#+RESULTS:
+: square 2
+: square 2
+: square 1
+: square 1
+: square 2
+
+#+BEGIN_SRC scheme :results output
+(expmod2 8 50 3)
+#+END_SRC
+
+#+RESULTS:
+: square 8
+: square 512
+: square 262144
+: square 68719476736
+: square 37778931862957161709568
+
+The difference is that the modulo operation is performed on each step in the original implementation of expmod. This allows the numbers to be kept relatively small through each step. In contrast, fast-expt squares at each step. 
+
+expmod: remainder(square(result))
+fast-expt: square(result)
+
+So over the course of 3 steps we have 
+
+expmod: (0 <= result <= m)
+        (0 <= (0 <= result <= m) <= m)
+        (0 <= (0 <= (0 <= result <= m) <= m) <= m)
+
+fast-expt:
+        (* 8 8 8)
+        (* (* 8 8 8) 8 8)
+        (* (* (* 8 8 8) 8 8) 8 8)
+
+*** Exercise 1.26 
+
+Original expmod
+
+#+BEGIN_SRC scheme
+(define (expmod base exp m)
+  (cond ((= exp 0) 1)
+        ((even? exp)
+         (remainder (square (expmod base (/ exp 2) m))
+                    m))
+        (else
+         (remainder 
+          (* base (expmod base (- exp 1) m))
+          m))))
+#+END_SRC
+
+Louis Reasoner's expmod:
+
+#+BEGIN_SRC scheme
+(define (expmod base exp m)
+  (cond ((= exp 0) 1)
+        ((even? exp)
+         (remainder
+          (* (expmod base (/ exp 2) m)
+             (expmod base (/exp 2) m))
+          m))
+        (else (remainder
+               (* base
+                  (expmode base (- exp 1) m))
+               m))))
+#+END_SRC
+
+Our original process runs in log2(n) time. When Louis rewrote the expmod code, for every call to expmod when exp is even his code generates two processes and for every call to an odd exp it returns another process. This has turned the linear recursion of expmod into a tree recursion. Tree recursion grows exponentially with n, as show in 1.2.2. 
+
+Therefore, we have 2^(log2(n)), or theta(n)
+
+*** Exercise 1.27 
