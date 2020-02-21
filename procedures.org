@@ -279,6 +279,7 @@ $b <- a$
 #+END_SRC
 
 #+RESULTS:
+: 12586269025
 12586269025
 21
 13
@@ -937,6 +938,7 @@ This is known as the Fermat test
 To implement this, we need a procedure that computes the exponential of a number modulo another number
 
 #+BEGIN_SRC scheme
+
 (define (expmod base exp m)
   (cond ((= exp 0) 1)
         ((even? exp)
@@ -946,6 +948,7 @@ To implement this, we need a procedure that computes the exponential of a number
          (remainder 
           (* base (expmod base (- exp 1) m))
           m))))
+
 #+END_SRC
 
 #+RESULTS:
@@ -962,7 +965,7 @@ The Fermat test is performed by choosing at random a number a between 1 and n-1 
     (= (expmod a n n) a))
   (try-it (+ 1 (random (- n 1)))))
 
-(fermat-test 6)
+(fermat-test 7)
 #+END_SRC
 
 #+RESULTS:
@@ -996,11 +999,11 @@ Let's try the second Cullen prime (of the form n*2^n + 1)
 Use the smallest-divisor procedure to find the smallest-divisor of each of the following numbers: 
 
 #+BEGIN_SRC scheme
-(smallest-divisor 1)
+(smallest-divisor 1999)
 #+END_SRC
 
 #+RESULTS:
-: 1
+: 1999
 1999999
 199999
 19999
@@ -1267,3 +1270,27 @@ Our original process runs in log2(n) time. When Louis rewrote the expmod code, f
 Therefore, we have 2^(log2(n)), or theta(n)
 
 *** Exercise 1.27 
+
+#+BEGIN_SRC scheme :results value
+(fast-prime? 6601 100)
+#+END_SRC
+
+#+RESULTS:
+: #t
+
+*** Exercise 1.28
+
+If n is a prime number, and a is any positive integer less than n, then a^(n-1) is congruent to 1 mod n. 
+
+To test the primality of a number n by the Miller-Rabin test, we pick a random number a < n and raise a to the (n-1)st power mod n using expmod. 
+
+However, whenever we perform the squaring step in expmod, we check to see if we have discovered a "nontrivial square root of 1 mod n", that is, a number not equal to 1 or n-1 whose square is equal to one mod n. 
+
+If such a nontrivial square root of 1 exists, then n is not prime. If n is an odd number that is not prime, the, for at least half the numbers a < n, computing a^(n-1) in this way will reveal a nontrivial square root of 1 mod n. 
+
+#+BEGIN_SRC scheme
+(define (expmod base exp m)
+  (cond ((= exp 0) 1)
+        ((even? exp)
+         ())))
+#+END_SRC
