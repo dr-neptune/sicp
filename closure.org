@@ -18,6 +18,7 @@ One of the useful structures we can build with pairs is a sequence - an ordered 
 #+END_SRC
 
 #+RESULTS:
+| 1 | 2 | 3 | 4 |
 
 Such a sequence of pairs, formed by nested conses, is called a list. We could have also made the structure above with the list function 
 
@@ -39,6 +40,9 @@ Such a sequence of pairs, formed by nested conses, is called a list. We could ha
 (car (cdr (cdr one_through_four)))
 #+END_SRC
 
+#+RESULTS:
+: 3
+
 *** List Operations 
 
 - for n = 0, list-ref should return the car of the list
@@ -56,7 +60,6 @@ Such a sequence of pairs, formed by nested conses, is called a list. We could ha
 #+END_SRC
 
 #+RESULTS:
-: 16
 
 Often we cdr down the whole list. To aid in this, scheme includes the primitive procedure null?, which tests whether its argument is the empty list. 
 
@@ -181,7 +184,7 @@ Use this notation to write a procedure same-parity that takes one or more intege
 #+END_SRC
 
 #+RESULTS:
-| 3 | 4 | 5 | 6 | 7 |
+| (2 3 4 5 6 7) | 4 | 5 | 6 | 7 |
 
 #+BEGIN_SRC scheme
 (define (same-parity a . b)
@@ -197,7 +200,7 @@ Use this notation to write a procedure same-parity that takes one or more intege
 #+END_SRC
 
 #+RESULTS:
-: 2
+: #!unspecific
 
 Not quite sure why this returns a list. This makes it not get past the first iteration. 
 
@@ -226,10 +229,16 @@ Not quite sure why this returns a list. This makes it not get past the first ite
 (map abs (list -10 2.5 -11.6 17))
 #+END_SRC
 
+#+RESULTS:
+| 10 | 2.5 | 11.6 | 17 |
+
 #+BEGIN_SRC scheme
 (map (lambda (x) (* x x))
      (list 1 2 3 4))
 #+END_SRC
+
+#+RESULTS:
+| 1 | 4 | 9 | 16 |
 
 Now we can give a new definition of scale-list in terms of map 
 
@@ -239,6 +248,9 @@ Now we can give a new definition of scale-list in terms of map
 
 (scale-list (list 1 2 3 4 5) 10)
 #+END_SRC
+
+#+RESULTS:
+| 10 | 20 | 30 | 40 | 50 |
 
 Scheme standardly provides a map procedure that is more general than the one described here. It takes a procedure of n arguments, together with n lists, and applies the procedure to all the first elements of the lists, all the second elements of the lists, and so on, returning a list of the results. 
 
@@ -303,7 +315,9 @@ map is an important construct, not only because it captures a common pattern, bu
 #+RESULTS:
 | 25 | 16 | 9 | 4 | 1 |
 
-#+BEGIN_SRC scheme
+The problem with this first version is that it conses on each iteration to the front of the pair. Therefore we get 1 squared first, then 2 sq first, 1 sq second, and so on. 
+
+#+BEGIN_SRC scheme 
 (define (square-list items)
   (define (iter things answer)
     (if (null? things)
@@ -311,9 +325,164 @@ map is an important construct, not only because it captures a common pattern, bu
         (iter (cdr things)
               (cons answer
                     (square (car things))))))
-  (iter items 0))
+  (iter items '()))
 
 (square-list (list 1 2 3 4 5))
 #+END_SRC
 
+This sort of works in that it gets the correct answer. Unfortunately, it is returning a nested list. This is because answer is always being passed a list, which is then consed into another list, and so on until the end. 
+
+*** Exercise 2.23 
+
+The procedure for-each is similar to map. It takes as arguments a procedure and a list of elements. Rather than forming a list of the results, for-each just applies the procedure to each of the elements in turn, from left to right. The values returned by applying the procedure to the elements are not used at all -- for-each is used with procedures that perform an action, such as printing. 
+
+#+BEGIN_SRC scheme :results output
+(define (for-each proc items)
+  (if (null? items)
+      '#t
+      (proc (car items)))
+  (for-each proc (cdr items)))
+
+(for-each (lambda (x)
+            (newline)
+            (display x))
+          (list 57 321 88))
+#+END_SRC
+
+*** Hierarchical Structures 
+
+The representation of sequences in terms of lists generalizes naturally to represent sequences whose elements may themselves be sequences. Another way to think of sequences whose elements are sequences is as trees. 
+
+#+BEGIN_SRC scheme
+(define x (cons (list 1 2)
+                (list 3 4)))
+
+(length x)
+#+END_SRC
+
 #+RESULTS:
+: 3
+
+Recall the recursive plan for computing length:
+
+- length of a list x is 1 plus the length of the cdr of x
+- length of the empty list is 0
+
+count-leaves is similar.
+
+- count-leaves of a tree x is count-leaves of the car of x plus count-leaves of the cdr of x
+- count-leaves of the empty list is 0 
+
+Then, by taking cars we reach the actual leaves, so we need another base case. 
+
+- count-leaves of a leaf is 1 
+
+#+BEGIN_SRC scheme
+(define (count-leaves x)
+  (cond ((null? x) 0)
+        ((pair? x)
+         (+ (count-leaves (car x))
+            (count-leaves (cdr x))))
+        (else 1)))
+#+END_SRC
+
+#+RESULTS:
+: count-leaves
+
+#+BEGIN_SRC scheme
+(count-leaves x)
+#+END_SRC
+
+#+RESULTS:
+: 4
+
+#+BEGIN_SRC scheme
+(count-leaves (list x x))
+#+END_SRC
+
+#+RESULTS:
+: 8
+
+*** Exercise 2.24 
+*** Exercise 2.25 
+
+#+BEGIN_SRC scheme
+(define exlist1 (list 1 3 (list 5 7) 9))
+(define exlist2 (list (list 7)))
+(define exlist3 (list 1
+                      (list 2
+                            (list 3
+                                  (list 4
+                                        (list 5
+                                              (list 6 7)))))))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(car (cdaddr exlist1))
+(caar exlist2)
+(cadadr (cadadr (cadadr exlist3)))
+#+END_SRC
+*** Exercise 2.26
+
+#+BEGIN_SRC scheme
+(define x (list 1 2 3))
+(define y (list 4 5 6))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(append x y)
+(cons x y)
+(list x y)
+#+END_SRC
+*** Exercise 2.27 
+
+Modify the reverse procedure from before to produce a deep reverse procedure that takes a list as an argument and returns as its value the list with its elements reversed and with all sublists deep-reversed as well. 
+
+#+BEGIN_SRC scheme
+(define (reverse l1)
+  (if (null? (cdr l1))
+      (car l1)
+      (list (reverse (cdr l1))
+            (car l1))))
+
+(reverse x)
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(define x (list (list 1 2)
+                (list 3 4)))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(define (deep-reverse items)
+  (reverse (map reverse items)))
+#+END_SRC
+
+#+RESULTS:
+: deep-reverse
+
+#+BEGIN_SRC scheme
+(deep-reverse x)
+#+END_SRC
+
+#+RESULTS:
+| 4 | 3 |
+| 2 | 1 |
+
+*** Exercise 2.28 
+
+Write a procedure fringe which takes as an argument a tree (represented as a list) and returns a list whose elements are all the leaves of the tree arranged in left to right order 
+
+#+BEGIN_SRC scheme
+(define (fringe items)
+  (cond ((null? items) '())
+        ((not (pair? items))
+         (list items))
+        (else (append (fringe (car items))
+                      (fringe (cdr items))))))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(fringe x)
+#+END_SRC
+
