@@ -18,7 +18,6 @@ One of the useful structures we can build with pairs is a sequence - an ordered 
 #+END_SRC
 
 #+RESULTS:
-| 1 | 2 | 3 | 4 |
 
 Such a sequence of pairs, formed by nested conses, is called a list. We could have also made the structure above with the list function 
 
@@ -270,7 +269,6 @@ Scheme standardly provides a map procedure that is more general than the one des
 
 map is an important construct, not only because it captures a common pattern, but because it establishes a higher level of abstraction in dealing with lists. 
 
-
 *** Exercise 2.21 
 
 #+BEGIN_SRC scheme
@@ -417,11 +415,18 @@ Then, by taking cars we reach the actual leaves, so we need another base case.
                                               (list 6 7)))))))
 #+END_SRC
 
+#+RESULTS:
+: #[constant 59 #x2]
+
 #+BEGIN_SRC scheme
 (car (cdaddr exlist1))
 (caar exlist2)
 (cadadr (cadadr (cadadr exlist3)))
 #+END_SRC
+
+#+RESULTS:
+: 7
+
 *** Exercise 2.26
 
 #+BEGIN_SRC scheme
@@ -429,11 +434,19 @@ Then, by taking cars we reach the actual leaves, so we need another base case.
 (define y (list 4 5 6))
 #+END_SRC
 
+#+RESULTS:
+: #[constant 59 #x2]
+
 #+BEGIN_SRC scheme
 (append x y)
 (cons x y)
 (list x y)
 #+END_SRC
+
+#+RESULTS:
+| 1 | 2 | 3 |
+| 4 | 5 | 6 |
+
 *** Exercise 2.27 
 
 Modify the reverse procedure from before to produce a deep reverse procedure that takes a list as an argument and returns as its value the list with its elements reversed and with all sublists deep-reversed as well. 
@@ -448,10 +461,16 @@ Modify the reverse procedure from before to produce a deep reverse procedure tha
 (reverse x)
 #+END_SRC
 
+#+RESULTS:
+| (3 2) | 1 |
+
 #+BEGIN_SRC scheme
 (define x (list (list 1 2)
                 (list 3 4)))
 #+END_SRC
+
+#+RESULTS:
+: x
 
 #+BEGIN_SRC scheme
 (define (deep-reverse items)
@@ -482,7 +501,185 @@ Write a procedure fringe which takes as an argument a tree (represented as a lis
                       (fringe (cdr items))))))
 #+END_SRC
 
+#+RESULTS:
+: fringe
+
 #+BEGIN_SRC scheme
 (fringe x)
 #+END_SRC
 
+#+RESULTS:
+| 1 | 2 | 3 | 4 |
+
+*** Exercise 2.29 
+
+A binary mobile consists of two branches, a left branch and a right branch. Each branch is a rod of a certain length, from which hangs either a weight or another binary mobile. 
+
+We can represent a binary mobile using compound data by constructing it from two branches 
+
+#+BEGIN_SRC scheme
+(define (make-mobile left right)
+  (list left right))
+#+END_SRC
+
+#+RESULTS:
+: make-mobile
+
+A branch is constructed from a length (which must be a number) together with a structure, which may be either a number (representing a simple weight) or another mobile. 
+
+#+BEGIN_SRC scheme
+(define (make-branch length structure)
+  (list length structure))
+#+END_SRC
+
+#+RESULTS:
+: make-branch
+
+0. For testing, here is a mobile 
+
+#+BEGIN_SRC scheme
+(define mobile (make-mobile
+                (make-branch 7 8)
+                (make-branch 6 (make-mobile
+                                (make-branch 5 4)
+                                (make-branch 9 10)))))
+#+END_SRC
+
+#+RESULTS:
+
+1. Write the corresponding selectors left-branch and right-branch which return the branches of a mobile, and branch-length and branch-structure, which return the components of a branch. 
+
+#+BEGIN_SRC scheme
+(define (left-branch mobile)
+  (car mobile))
+
+(define (right-branch mobile)
+  (cadr mobile))
+
+(define (branch-length branch)
+  (car branch))
+
+(define (branch-structure branch)
+  (cadr branch))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(left-branch mobile)
+(right-branch mobile)
+
+(branch-length (left-branch mobile))
+(branch-length (right-branch mobile))
+
+(branch-structure (left-branch mobile))
+(branch-structure (right-branch mobile))
+#+END_SRC
+
+2. Using your selectors, define a procedure total-weight that returns the total weight of a mobile 
+
+#+BEGIN_SRC scheme
+(define (total-weight mobile)
+  (cond ((null? mobile) 0)
+        ((not (pair? mobile)) mobile)
+        (else (+ (total-weight (branch-structure (left-branch mobile)))
+                 (total-weight (branch-structure (right-branch mobile)))))))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(total-weight mobile)
+#+END_SRC
+
+3. A mobile is said to be balanced if the torque applied by its top-left branch is equal to that applied by its top-right branch (that is, if the length of the left rod multiplied by the weight hanging from that rod is equal to the corresponding product for the right side) and if each of the submobiles hanging off its branches is balanced. Design a predicate that tests whether a binary mobile is balanced. 
+
+
+#+BEGIN_SRC scheme
+(define balanced-mobile (make-mobile
+                         (make-branch 4 6)
+                         (make-branch 2 (make-mobile
+                                         (make-branch 5 8)
+                                         (make-branch 10 4)))))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(define (balanced? mobile)
+  (cond ((null? mobile) #t)
+        ((not (pair? mobile)) #t)
+        (else (and (= (* (branch-length (left-branch mobile))
+                         (total-weight (branch-structure (left-branch mobile))))
+                      (* (branch-length (right-branch mobile))
+                         (total-weight (branch-structure (right-branch mobile)))))
+                   (balanced? (branch-structure (left-branch mobile)))
+                   (balanced? (branch-structure (right-branch mobile)))))))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(balanced? balanced-mobile)
+#+END_SRC
+
+4. Suppose we change the representatin of mobiles so that the constructors are 
+
+#+BEGIN_SRC scheme
+(define (make-mobile left right)
+  (cons left right))
+
+(define (make-branch length structure)
+  (cons length structure))
+#+END_SRC
+
+How much do we need to change our programs to convert to the new representation? 
+
+Our previous representation looked like the following:
+
+;Value 78: ((7 8) (6 ((5 4) (9 10))))
+
+and the new representation looks like this:
+
+;Value 91: ((7 . 8) 6 (5 . 4) 9 . 10)
+
+We need our old selectors to match our new selectors. 
+
+#+BEGIN_SRC scheme
+(define (left-branch mobile)
+  (car mobile))
+
+(define (right-branch mobile)
+  (cdr mobile))
+
+(define (branch-length branch)
+  (car branch))
+
+(define (branch-structure branch)
+  (cdr branch))
+#+END_SRC
+
+After checking all of our previous outputs, it seems to work just fine. 
+
+*** Mapping Over Trees 
+
+Just as map is a powerful abstraction for dealing with sequences, map together with recursion is a powerful abstraction for dealing with trees. 
+
+#+BEGIN_SRC scheme
+(define (scale-tree tree factor)
+  (cond ((null? tree) '())
+        ((not (pair? tree))
+         (* tree factor))
+        (else (cons (scale-tree (car tree) factor)
+                    (scale-tree (cdr tree) factor)))))
+
+(scale-tree (list 1
+                  (list 2
+                        (list 3 4)
+                        5)
+                  (list 6 7))
+            10)
+#+END_SRC
+
+Another way to implement scale-tree is to regard the tree as a sequence of subtrees and use map. 
+
+#+BEGIN_SRC scheme
+(define (scale-tree tree factor)
+  (map (lambda (sub-tree)
+         (if (pair? sub-tree)
+             (scale-tree sub-tree factor)
+             (* sub-tree factor)))
+       tree))
+#+END_SRC
