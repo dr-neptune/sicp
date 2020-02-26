@@ -665,12 +665,13 @@ Just as map is a powerful abstraction for dealing with sequences, map together w
         (else (cons (scale-tree (car tree) factor)
                     (scale-tree (cdr tree) factor)))))
 
-(scale-tree (list 1
+(define ex-tree (list 1
                   (list 2
                         (list 3 4)
                         5)
-                  (list 6 7))
-            10)
+                  (list 6 7)))
+
+(scale-tree ex-tree 10)
 #+END_SRC
 
 Another way to implement scale-tree is to regard the tree as a sequence of subtrees and use map. 
@@ -682,4 +683,82 @@ Another way to implement scale-tree is to regard the tree as a sequence of subtr
              (scale-tree sub-tree factor)
              (* sub-tree factor)))
        tree))
+#+END_SRC
+
+*** Exercise 2.30 
+
+Define a procedure square-tree analogous to the square-list procedure. 
+
+The original square-list:
+
+#+BEGIN_SRC scheme
+(define (square-list items)
+  (if (null? items)
+      '()
+      (cons (square (car items))
+            (square-list (cdr items)))))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(define (square-tree tree)
+  (map (lambda (sub-tree)
+         (if (pair? sub-tree)
+             (square-tree sub-tree)
+             (square sub-tree)))
+       tree))
+
+(square-tree ex-tree)
+#+END_SRC
+
+*** Exercise 2.31 
+
+Abstract your answer to 2.30 to produce a procedure tree-map with the property that square-tree could be defined as 
+
+#+BEGIN_SRC scheme
+(define (square-tree tree)
+  (tree-map square tree))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(define (tree-map proc tree)
+  (map (lambda (sub-tree)
+         (if (pair? sub-tree)
+             (tree-map proc sub-tree)
+             (proc sub-tree)))
+       tree))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(square-tree ex-tree)
+#+END_SRC
+
+*** Exercise 2.32 
+
+Complete the following definition of a procedure to generate a powerset. 
+
+#+BEGIN_SRC scheme
+(define (subsets s)
+  (if (null? s)
+      '()
+      (let ((rest (subsets (cdr s))))
+        (append rest (map <??> rest)))))
+#+END_SRC
+
+(1 2 3)
+rest = (2 3)
+
+#+BEGIN_SRC scheme
+(define (subsets s)
+  (if (null? s)
+      '()
+      (let ((rest (subsets (cdr s))))
+        (append rest (map (lambda (x)
+                            ())
+                          rest)))))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(define s (list 1 2 3))
+
+(subsets s)
 #+END_SRC
