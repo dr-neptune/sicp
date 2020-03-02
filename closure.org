@@ -833,6 +833,9 @@ For instance:
 (map square (list 1 2 3 4 5))
 #+END_SRC
 
+#+RESULTS:
+| 1 | 4 | 9 | 16 | 25 |
+
 Filtering a sequence to select only those elements that satisfy a given predicate is accomplished by 
 
 #+BEGIN_SRC scheme
@@ -845,11 +848,13 @@ Filtering a sequence to select only those elements that satisfy a given predicat
 #+END_SRC
 
 #+RESULTS:
-: filter
 
 #+BEGIN_SRC scheme
 (filter odd? (list 1 2 3 4 5))
 #+END_SRC
+
+#+RESULTS:
+| 1 | 3 | 5 |
 
 Accumulations can be implemented by 
 
@@ -870,6 +875,9 @@ Accumulations can be implemented by
 (accumulate cons '() (list 1 2 3 4 5))
 #+END_SRC
 
+#+RESULTS:
+| 1 | 2 | 3 | 4 | 5 |
+
 
 Enumerations can be implemented by the structure:
 
@@ -886,6 +894,9 @@ Enumerations can be implemented by the structure:
 #+BEGIN_SRC scheme
 (enumerate-interval 2 7)
 #+END_SRC
+
+#+RESULTS:
+| 2 | 3 | 4 | 5 | 6 | 7 |
 
 To enumerate the leaves of a tree we can use 
 
@@ -921,6 +932,9 @@ enumerate -> filter -> map -> accumulate
                            (enumerate-tree tree)))))
 #+END_SRC
 
+#+RESULTS:
+: sum-odd-squares
+
 even-fibs 
 
 enumerate -> map -> filter -> accumulate 
@@ -932,6 +946,9 @@ enumerate -> map -> filter -> accumulate
                       (map fib
                            (enumerate-interval 1 n)))))
 #+END_SRC
+
+#+RESULTS:
+: even-fibs
 
 The value of expressing programs as sequence operations is that this helps us make program designs that are modular, that is, designs that are constructed by combining relatively independent pieces. We can encourage modular design by providing a library of standard components together with a conventional interface for connecting the components in flexible ways. 
 
@@ -989,6 +1006,9 @@ Fill in the missing expressions to complete the following definitions of some ba
 (map square (list 1 2 3 4 5 6 7 8 9))
 #+END_SRC
 
+#+RESULTS:
+| 1 | 4 | 9 | 16 | 25 | 36 | 49 | 64 | 81 |
+
 #+BEGIN_SRC scheme
 (define (append seq1 seq2)
   (accumulate cons seq2 seq1))
@@ -1023,16 +1043,13 @@ Fill in the following template to produce a procedure that evaluates a polynomia
 #+BEGIN_SRC scheme
 (define (horner-eval x coefficient-sequence)
   (accumulate (lambda (this-coef higher-terms)
-                <???>)
-              0
-              coefficient-sequence))
-
-(define (horner-eval x coefficient-sequence)
-  (accumulate (lambda (this-coef higher-terms)
                 (+ (* higher-terms x) this-coef))
               0
               coefficient-sequence))
 #+END_SRC
+
+#+RESULTS:
+: horner-eval
 
 #+BEGIN_SRC scheme
 (horner-eval 2 (list 1 3 0 5 0 1))
@@ -1059,6 +1076,9 @@ Redefine count-leaves from 2.2.2 as an accumulation
 (count-leaves ex-tree2)
 #+END_SRC
 
+#+RESULTS:
+: 7
+
 *** Exercise 2.36 
 
 The procedure accumulate-n is similar to accumulate except that it takes as its third argument a sequence of sequences, which are all assumed to have the same number of elements. It applies the designated accumulation procedure to combine all the first elements of the sequences, all the second elements of the sequences, and so on, and returns a sequence of the results. 
@@ -1084,6 +1104,9 @@ then the value of (accumulate-n + 0 s) should be the sequence (22 26 30).
 (accumulate-n + 0 multi-seq)
 #+END_SRC
 
+#+RESULTS:
+| 22 | 26 | 30 |
+
 *** Exercise 2.37 
 
 Suppose we represent vectors v = (v_i) as a sequence of numbers and matrices m = (m_{ij}) as sequences of vectors (the rows of the matrix). 
@@ -1103,14 +1126,17 @@ With this representation we can use sequence operations to concisely express the
 
 (define ex-vec2 (list 4 2 3 4))
 
-(define ex-mat1 (list (list 1 2 3 4)
-                      (list 4 5 6 6)
-                      (list 6 7 8 9)))
+(define ex-mat1 (list (list 1 2 3)
+                      (list 4 5 6)
+                      (list 6 7 8)))
 
-(define ex-mat2 (list (list 1 2 3 5)
-                      (list 4 9 6 6)
-                      (list 6 7 11 9)))
+(define ex-mat2 (list (list 1 2 3)
+                      (list 4 9 6)
+                      (list 6 7 9)))
 #+END_SRC
+
+#+RESULTS:
+: ex-mat2
 
 #+BEGIN_SRC scheme
 (define (dot-product v w)
@@ -1119,19 +1145,84 @@ With this representation we can use sequence operations to concisely express the
 (dot-product ex-vec1 ex-vec2)
 #+END_SRC
 
+#+RESULTS:
+: 33
+
 #+BEGIN_SRC scheme
 (define (matrix-*-vector m v)
-  (map <???> m))
+  (map (lambda (x) (dot-product v x))  m))
+
+(matrix-*-vector ex-mat1 ex-vec1)
 #+END_SRC
+
+#+RESULTS:
+| 30 | 56 | 80 |
 
 #+BEGIN_SRC scheme
 (define (transpose mat)
-  (accumulate-n <???> <???> mat))
+  (accumulate-n cons '() mat))
+
+(transpose ex-mat1)
 #+END_SRC
+
+#+RESULTS:
+| 1 | 4 | 6 |
+| 2 | 5 | 7 |
+| 3 | 6 | 8 |
+| 4 | 6 | 9 |
 
 
 #+BEGIN_SRC scheme
 (define (matrix-*-matrix m n)
   (let ((cols (transpose n)))
     (map <???> m)))
+
+
+(define (matrix-*-matrix m n)
+  (let ((cols (transpose n)))
+    (map (lambda (x) (matrix-*-vector cols x)) m)))
+
+(matrix-*-matrix ex-mat1 ex-mat2)
 #+END_SRC
+
+#+RESULTS:
+| 27 |  41 |  42 |
+| 60 |  95 |  96 |
+| 82 | 131 | 132 |
+
+*** Exercise 2.38 
+
+#+BEGIN_SRC scheme
+(define (fold-left op initial sequence)
+  (define (iter result rest)
+    (if (null? rest)
+        result
+        (iter (op result (car rest))
+              (cdr rest))))
+  (iter initial sequence))
+#+END_SRC
+
+#+RESULTS:
+: fold-left
+
+#+BEGIN_SRC scheme
+(fold-right / 1 (list 1 2 3))
+
+(fold-left / 1 (list 1 2 3))
+
+(fold-right list '() (list 1 2 3))
+
+(fold-left list '() (list 1 2 3))
+
+(fold-right * 1 (list 3 2 5))
+
+(fold-left * 1 (list 3 2 5))
+#+END_SRC
+
+associative and commutative 
+
+Supposedly monoid has something to do with this
+
+https://en.wikipedia.org/wiki/Monoid#Monoids_in_computer_science
+
+
