@@ -546,6 +546,8 @@ So n would look like
   (display '"]"))
 #+END_SRC
 
+#+RESULTS:
+
 **** Exercise 2.7
 
 Define selectors upper-bound and lower-bound to complete the implementation. 
@@ -564,7 +566,7 @@ Define selectors upper-bound and lower-bound to complete the implementation.
 #+END_SRC
 
 #+RESULTS:
-: #[constant 40 #x2]
+: #[constant 41 #x2]
 
 **** Exercise 2.8 
 
@@ -586,7 +588,134 @@ What do we do is a is a strict subset of b in b - a? How does one return two int
                               (make-interval 3 4)))
 #+END_SRC
 
+#+RESULTS:
+: [-2, 0]
+
 **** Exercise 2.9 
 
-The width of an interval is half the distance between its upper and lower bounds. 
+The width of an interval is half the distance between its upper and lower bounds. The width is a measure of the uncertainty of the number specified by the interval. For some arithmetic operations the width of the result of combining two intervals is a function only of the widths of the argument intervals, whereas for others it is not. 
 
+Show that the width of the sum (or difference) of two intervals is a function only of the widths of the intervals being added (or subtracted). Give exanples of this not being true for multiplication or division. 
+
+For a function to be a function of the width of two intervals, we need to have the same output for every combination of inputs that have the same width. For example, suppose we have two intervals i_1 and i_2 with widths of 3 and 4 respectively. No matter what the start and end points of these two intervals are, the ending width will be the same under addition and subtraction
+
+#+BEGIN_SRC scheme :results output
+(define i_1 (make-interval 2 5))
+(define i_2 (make-interval 1 5))
+(define i_1_2 (make-interval -1 2))
+(define i_2_2 (make-interval 6 10))
+
+
+(add-interval i_1 i_2)
+(sub-interval i_1 i_2)
+
+(add-interval i_1_2 i_2_2)
+(sub-interval i_1_2 i_2_2)
+#+END_SRC
+
+All of the above have widths of 7, regardless of the starting and ending values for our intervals. 
+
+In contrast, let's look at this with multiplication and division
+
+#+BEGIN_SRC scheme
+(mul-interval i_1 i_2)
+(div-interval i_1 i_2)
+
+(mul-interval i_1_2 i_2_2)
+(div-interval i_1_2 i_2_2)
+#+END_SRC
+
+Now we have 4 totally different answers. 
+
+**** Exercise 2.10 
+
+#+BEGIN_SRC scheme :results output
+(define (spans-zero? x)
+  (> 0
+     (* (lower-bound x)
+        (upper-bound x))))
+
+(define (div-interval x y)
+  (if (or (spans-zero? x)
+          (spans-zero? y))
+      (error "Error: Division spans zero")
+      (mul-interval x
+                    (make-interval (/ 1.0 (upper-bound y))
+                                   (/ 1.0 (lower-bound y))))))
+
+(div-interval i_1_2 i_2_2)
+#+END_SRC
+
+#+RESULTS:
+: 
+: ;Error: Division spans zero
+: ;To continue, call RESTART with an option number:
+: ; (RESTART 4) => Return to read-eval-print level 4.
+: ; (RESTART 3) => Return to read-eval-print level 3.
+: ; (RESTART 2) => Return to read-eval-print level 2.
+: ; (RESTART 1) => Return to read-eval-print level 1.
+: 
+: 5 error> 
+
+#+BEGIN_SRC scheme :results output
+(print-interval (div-interval i_1 i_2))
+#+END_SRC
+
+#+RESULTS:
+: [.4, 5.]
+
+**** Exercise 2.11 
+
+#+BEGIN_SRC scheme
+(define (mul-interval x y)
+  (let ((p1 (* (lower-bound x)
+               (lower-bound y)))
+        (p2 (* (lower-bound x)
+               (upper-bound y)))
+        (p3 (* (upper-bound x)
+               (lower-bound y)))
+        (p4 (* (upper-bound x)
+               (upper-bound y))))
+    (make-interval (min p1 p2 p3 p4)
+                   (max p1 p2 p3 p4))))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(define (make-center-width c w)
+  (make-interval (- c w) (+ c w)))
+
+(define (center i)
+  (/ (+ (lower-bound i)
+        (upper-bound i))
+     2))
+
+(define (width i)
+  (/ (- (upper-bound i)
+        (lower-bound i))
+     2))
+#+END_SRC
+
+#+RESULTS:
+: #[constant 41 #x2]
+
+**** Exercise 2.12 
+
+Define a constructor make-center-percent that takes a center and a percentage tolerance and produces the desired interval. You must also define a selector percent that produces the percentage tolerance for a given interval. 
+
+#+BEGIN_SRC scheme :results output
+(print-interval i_1)
+#+END_SRC
+
+#+RESULTS:
+: [2, 5]
+
+#+BEGIN_SRC scheme
+(define (make-center-percent center tolerance)
+  (make-center-width center (width (* center tolerance))))
+
+(center i_1)
+(* .2 (width i_1))
+
+(define (percent interval)
+  (* tolerance interval))
+#+END_SRC

@@ -1183,6 +1183,8 @@ As an example of reuse, notice that the cube root of x is a fixed point of the f
    1.0))
 #+END_SRC
 
+#+RESULTS:
+
 
 #+BEGIN_SRC scheme
 (cbrt 27)
