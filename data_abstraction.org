@@ -709,13 +709,39 @@ Define a constructor make-center-percent that takes a center and a percentage to
 #+RESULTS:
 : [2, 5]
 
-#+BEGIN_SRC scheme
+#+BEGIN_SRC scheme :results output
 (define (make-center-percent center tolerance)
   (make-center-width center (width (* center tolerance))))
 
-(center i_1)
-(* .2 (width i_1))
-
-(define (percent interval)
-  (* tolerance interval))
+(make-center-percent (center i_1) .2)
 #+END_SRC
+
+#+RESULTS:
+#+begin_example
+
+.7000000000000001
+#+end_example
+
+#+BEGIN_SRC scheme
+(define (percent interval)
+  (* 100.0 (/ (width interval)
+               (center interval))))
+
+(percent i_1)
+#+END_SRC
+
+#+RESULTS:
+: 42.857142857142854
+
+**** Exercise 2.13 
+
+Show that under the assumption of small percentage tolerances there is a simple formula for the approximate percentage tolerance of the product of two intervals in terms of the tolerances of the factors. You may simplify the problem by assuming that all numbers are positive. 
+
+#+BEGIN_SRC scheme
+(make-center-percent (center i_1) 0.2) ; .7
+(make-center-percent (center i_2) 0.2) ; .6
+(make-center-percent (center (mul-interval i_1 i_2)) .2) ; 2.7
+#+END_SRC
+
+Intuitively, we may assume that we can do the following: 
+
