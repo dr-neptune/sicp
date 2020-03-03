@@ -848,6 +848,7 @@ Filtering a sequence to select only those elements that satisfy a given predicat
 #+END_SRC
 
 #+RESULTS:
+: filter
 
 #+BEGIN_SRC scheme
 (filter odd? (list 1 2 3 4 5))
@@ -1203,7 +1204,6 @@ With this representation we can use sequence operations to concisely express the
 #+END_SRC
 
 #+RESULTS:
-: fold-left
 
 #+BEGIN_SRC scheme
 (fold-right / 1 (list 1 2 3))
@@ -1225,4 +1225,137 @@ Supposedly monoid has something to do with this
 
 https://en.wikipedia.org/wiki/Monoid#Monoids_in_computer_science
 
+*** Exercise 2.39 
 
+Complete the following definitions of reverse in terms of fold-right and fold-left
+
+#+BEGIN_SRC scheme
+(define (reverse sequence)
+  (fold-right (lambda (x y) <???>) '() sequence))
+
+(define (reverse sequence)
+  (fold-right (lambda (x y) (append y (list x))) '() sequence))
+
+(define ez-seq '(1 2 3 4))
+
+(reverse ez-seq)
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(define (reverse sequence)
+  (fold-left (lambda (x y) (cons y  x))
+             '()
+             sequence))
+#+END_SRC
+
+They both do essentially the same thing, but the way the data structure nests is different. 
+
+
+*** Nested Mappings 
+
+We can extend the sequence paradigm to include many computations that are commonly expressed using nested loops. 
+
+Consider this problem: Given a positive integer n, find all ordered pairs of distinct positive integers i and j where $1 \leq j \lt i \leq n$ such that i + j is prime. 
+
+A natural way to organize this computation is to generate the sequence of all ordered pairs of positive integers less than or equal to n, filter to select those pairs whose sum is prime, and then for each pair (i, j) that passes through the filter, produce the triple (i, j, i + j). 
+
+Here is a way to generate the sequence of pairs: For each integer $i \leq n$, enumerate the integers j < i, and for each such i and j generate the pair (i, j). 
+
+In terms of sequence operations, we map along the sequence (enumerate-interval 1 n). For each i in this sequence, we map along the sequence (enumerate-interval 1 (- i 1)). For each j in this latter sequence, we generate the pair (list i j). This gives us a sequence of pairs for each i. 
+
+#+BEGIN_SRC scheme
+(accumulate append '() (map (lambda (j) (list i j))
+                            (enumerate-interval 1 (- i 1)))
+            (enumerate-interval 1 n))
+#+END_SRC
+
+This combination of mapping and accumulating with append is so common in this sort of program that we will isolate it as a separate procedure
+
+#+BEGIN_SRC scheme
+(define (flatmap proc seq)
+  (accumulate append '() (map proc seq)))
+#+END_SRC
+
+Now filter this sequence of pairs to find those whose sum is prime. 
+
+#+BEGIN_SRC scheme
+(define (expmod base exp m)
+  (cond ((= exp 0) 1)
+        ((even? exp)
+         (remainder (square (expmod base (/ exp 2) m))
+                    m))
+        (else
+         (remainder 
+          (* base (expmod base (- exp 1) m))
+          m))))
+
+(define (fermat-test n)
+  (define (try-it a)
+    (= (expmod a n n) a))
+  (try-it (+ 1 (random (- n 1)))))
+
+(define (fast-prime? n times)
+  (cond ((= times 0) true)
+        ((fermat-test n) (fast-prime? n (- times 1)))
+        (else false)))
+
+(define (prime? n)
+  (fast-prime? n 50))
+
+(define (prime-sum? pair)
+  (prime? (+ (car pair)
+             (cadr pair))))
+#+END_SRC
+
+Now we can generate the sequence of results by mapping over the filtered pairs using the following procedure which constructs a triple consisting of the two elements of the pair along with their sum:
+
+#+BEGIN_SRC scheme
+(define (make-pair-sum pair)
+  (list (car pair)
+        (cadr pair)
+        (+ (car pair)
+           (cadr pair))))
+#+END_SRC
+
+#+RESULTS:
+: make-pair-sum
+
+And we can combine all these steps to yield the complete procedure: 
+
+#+BEGIN_SRC scheme
+(define (prime-sum-pairs n)
+  (map make-pair-sum (filter
+                      prime-sum?
+                      (flatmap (lambda (i)
+                                 (map (lambda (j)
+                                        (list i j))
+                                      (enumerate-interval 1 (- i 1))))
+                               (enumerate-interval 1 n)))))
+#+END_SRC
+
+#+RESULTS:
+: prime-sum-pairs
+
+Nested mappings are also useful for other sequences. Suppose we wish to generate all the permutations of a set S. Here is a plan:
+
+For each item x in S, recursively generate the sequence of permutations of (S - x), and adjoin x to the front of each one. This yields, for each x in S, the sequence of permutations of S that begin with x. Combining these sequences for all x gives the all the permutations of S. 
+
+
+#+BEGIN_SRC scheme
+(define (remove item sequence)
+  (filter (lambda (x) (not (= x item)))
+          sequence))
+
+(define (permutations s)
+  (if (null? s)
+      (list '())
+      (flatmap (lambda (x)
+                 (map (lambda (p)
+                        (cons x p))
+                      (permutations (remove x s))))
+               s)))
+
+(permutations '(1 2 3))
+#+END_SRC
+
+#+RESULTS:
