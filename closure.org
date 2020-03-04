@@ -773,7 +773,7 @@ rest = (2 3)
 
 This doesn't work and needs to be fixed 
 
-** 2.2.3 Sequences as Conventional Interfaces 
+** Sequences as Conventional Interfaces 
 
 In working with compound data, we've stressed how data abstraction permits us to design programs without becoming enmeshed in the details of data representations, and how abstraction preserves for us the flexibility to experiment with alternative representations. In this section, we look at another powerful design principle for working with data structures -- the use of conventional interfaces. 
 
@@ -823,7 +823,7 @@ enumerate -> map -> filter -> accumulate
  
 If we could organize our programs to make the signla flow structure manifest in the procedures we write, this would increase the conceptual clarity of our code. 
 
-*** Sequence Operations 
+** Sequence Operations 
 
 The key to organizing programs so as to more clearly reflect the signal-flow structure is to concentrate on the signals that flow from one stage in the process to the next. If we represent these signals as a list, we can use list operations to implement the processing at each of these stages. 
 
@@ -1250,8 +1250,7 @@ Complete the following definitions of reverse in terms of fold-right and fold-le
 
 They both do essentially the same thing, but the way the data structure nests is different. 
 
-
-*** Nested Mappings 
+** Nested Mappings 
 
 We can extend the sequence paradigm to include many computations that are commonly expressed using nested loops. 
 
@@ -1275,6 +1274,9 @@ This combination of mapping and accumulating with append is so common in this so
 (define (flatmap proc seq)
   (accumulate append '() (map proc seq)))
 #+END_SRC
+
+#+RESULTS:
+: flatmap
 
 Now filter this sequence of pairs to find those whose sum is prime. 
 
@@ -1306,6 +1308,9 @@ Now filter this sequence of pairs to find those whose sum is prime.
   (prime? (+ (car pair)
              (cadr pair))))
 #+END_SRC
+
+#+RESULTS:
+: #[constant 44 #x2]
 
 Now we can generate the sequence of results by mapping over the filtered pairs using the following procedure which constructs a triple consisting of the two elements of the pair along with their sum:
 
@@ -1381,6 +1386,28 @@ Define a procedure, unique-pairs that, given an integer n, generates the sequenc
 (unique-pairs 5)
 #+END_SRC
 
+#+RESULTS:
+| 1 | 1 |
+| 1 | 2 |
+| 1 | 3 |
+| 1 | 4 |
+| 2 | 1 |
+| 2 | 2 |
+| 2 | 3 |
+| 2 | 4 |
+| 3 | 1 |
+| 3 | 2 |
+| 3 | 3 |
+| 3 | 4 |
+| 4 | 1 |
+| 4 | 2 |
+| 4 | 3 |
+| 4 | 4 |
+| 5 | 1 |
+| 5 | 2 |
+| 5 | 3 |
+| 5 | 4 |
+
 use unique-pairs to simplify the definition of prime-sum-pairs given above. 
 
 #+BEGIN_SRC scheme
@@ -1392,7 +1419,65 @@ use unique-pairs to simplify the definition of prime-sum-pairs given above.
 (prime-sum-pairs 6)
 #+END_SRC
 
+#+RESULTS:
+| 1 | 1 |  2 |
+| 1 | 2 |  3 |
+| 1 | 4 |  5 |
+| 2 | 1 |  3 |
+| 2 | 3 |  5 |
+| 2 | 5 |  7 |
+| 3 | 2 |  5 |
+| 3 | 4 |  7 |
+| 4 | 1 |  5 |
+| 4 | 3 |  7 |
+| 5 | 2 |  7 |
+| 6 | 1 |  7 |
+| 6 | 5 | 11 |
+
 *** Exercise 2.41 
 
-Write a procedure to find all ordered triples of distinct positive integers i, j, and k less than or equal to a given integer n that sum to a given integer s
+Write a procedure to find all ordered triples of distinct positive integers i, j, and k less than or equal to a given integer n that sum to a given integer s. 
 
+generate all triples 
+filter on pairs in which i < j and j < k <= n 
+filter on pairs in which the sum of ijk = s  
+
+#+RESULTS:
+
+#+BEGIN_SRC scheme
+(define (get-trips n)
+  (flatmap (lambda (x)
+             (flatmap
+              (lambda (y)
+                (map
+                 (lambda (z)
+                   (list x y z))
+                 (enumerate-interval 1 n)))
+              (enumerate-interval 1 n)))
+           (enumerate-interval 1 n)))
+
+(get-trips 3)
+
+(define (ordered-triple? triple)
+  (and (< (car triple)
+          (cadr triple))
+       (< (cadr triple)
+          (caddr triple))))
+
+(ordered-triple? '(1 3 5))
+
+(define (sum-triple-s? triple s)
+  (= s (+ (car triple)
+          (cadr triple)
+          (caddr triple))))
+
+(sum-triple-s? '(1 2 3) 6)
+
+(define (distinct-triple-sum n s)
+  (filter (lambda (x) (sum-triple-s? x s))
+          (filter ordered-triple? (get-trips n))))
+
+(distinct-triple-sum 20 16)
+#+END_SRC
+
+*** Exercise 2.42 
