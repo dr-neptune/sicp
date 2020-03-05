@@ -1,0 +1,121 @@
+* Symbolic Data 
+:PROPERTIES:
+:header-args: :session scheme :results value
+:END:
+
+In this section we extend the representational capability of our language by introducing the ability to work with arbitrary symbols as data. 
+
+** Quotation 
+
+In order to manipulate symbols we need a new element in our language: the ability to quote a data object.
+
+#+BEGIN_SRC scheme
+(define a 1)
+(define b 2)
+
+(list a b)
+(list 'a 'b)
+(list 'a b)
+#+END_SRC
+
+Quotation also allows us to type in compound objects, using the conventional printed representation for lists 
+
+#+BEGIN_SRC scheme
+(car '(a b c))
+(cdr '(a b c))
+#+END_SRC
+
+eq? takes two symbols as arguments and test whether they are the same. With this we can implement memq, which takes two args: a symbol and a list. If the symbol is not contained in the list, then memq returns false, otherwise it returns the sublist beginning with the first occurrence of the symbol 
+
+#+BEGIN_SRC scheme
+(define (memq item x)
+  (cond ((null? x) false)
+        ((eq? item (car x)) x)
+        (else (memq item (cdr x)))))
+
+(memq 'apple '(pear banana prune))
+(memq 'apple '(x (apple sauce) y apple pear))
+#+END_SRC
+
+*** Exercise 2.54 
+
+#+BEGIN_SRC scheme
+(define (equal? list1 list2)
+  (cond ((null? list1) #t)
+        ((eq? (car list1)
+              (car list2))
+         (equal? (cdr list1)
+                 (cdr list2)))
+        (else #f)))
+
+(equal? '(this is a list)
+        '(this (is a) list))
+#+END_SRC
+
+*** Exercise 2.55 
+
+#+BEGIN_SRC scheme
+(car ''abracadabra)
+#+END_SRC
+
+Eva is passing car a list of symbolic objects, ' and 'abracadabra. We see this by asking for the cdr and getting back abracadabra
+
+#+BEGIN_SRC scheme
+(cdr ''abracadabra)
+#+END_SRC
+
+** Example: Symbolic Differentiation 
+
+Consider the design of a procedure that performs symbolic differentiation of algebraic expressions. 
+
+*** The differentiation program with abstract data 
+
+
+#+BEGIN_SRC scheme
+(define (variable? e))
+
+(define (same-variable? v1 v2))
+
+(define (sum? e))
+
+(define (addend e))
+
+(define (augend e))
+
+(define (make-sum a1 a2))
+
+(define (product? e))
+
+(define (multiplier e))
+
+(define (multiplicand e))
+
+(define (make-product m1 m2))
+#+END_SRC
+
+Using these primitives, we can write the rules for differentiation as follows:
+
+#+BEGIN_SRC scheme
+(define (deriv exp var)
+  (cond ((number? exp) 0)
+        ((variable? exp)
+         (if (same-variable? exp var) 1 0))
+        ((sum? exp)
+         (make-sum (deriv (addend exp) var)
+                   (deriv (augend exp) var)))
+        ((product? exp)
+         (make-sum
+          (make-product
+           (multiplier exp)
+           (deriv (multiplicand exp) var))
+          (make-product
+           (deriv (multiplier exp) var)
+           (multiplicand exp))))
+        (else (error "Unknown expression type: DERIV" exp))))
+#+END_SRC
+
+
+This procedure incorporates the complete differentiation algorithm. Since it is expressed in terms of abstract data, it will work no matter how we choose to represent algebraic expressions, as long as we design a proper set of selectors and constructors. 
+
+*** Representing algebraic expressions 
+
