@@ -1032,6 +1032,7 @@ This took 10 steps, spitting out an answer at 11
 
 #+RESULTS:
 cont-frac
+cont-frac
 
 #+BEGIN_SRC scheme
 (cont-frac (lambda (i) 1.0)
@@ -1070,6 +1071,18 @@ until we reach a = 0, then we return our result.
                  (+ (d (- k 1))
                     result)))))
   (iter k (/ (n k) (d k))))
+
+
+(define (cont-frac-iter n d k)
+  (define (iter a result)
+    (if (< a 1)
+        result
+        (iter (- a 1)
+              (/ (n a)
+                 (+ (d a)
+                    result)))))
+  (iter k (/ (n k) (d k))))
+
 #+END_SRC
 
 #+RESULTS:
@@ -1115,9 +1128,21 @@ cont-frac-iter
              (lambda (i)
                (- (* i 2) 1))
              k))
+
+(define (tan-cf x k)
+  (cont-frac-iter (lambda (i)
+               (if (< i 2)
+                   x
+                   (- (* x x))))
+             (lambda (i)
+               (- (* i 2) 1))
+             k))
+
+(tan-cf 1.0 10)
 #+END_SRC
 
 #+RESULTS:
+5.2778186154407866e-2
 tan-cf
 tan-cf
 
