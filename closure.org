@@ -1481,3 +1481,6 @@ filter on pairs in which the sum of ijk = s
 #+END_SRC
 
 *** Exercise 2.42 
+
+** Example: A Picture Language
+
