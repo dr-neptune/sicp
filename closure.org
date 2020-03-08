@@ -1484,3 +1484,6 @@ filter on pairs in which the sum of ijk = s
 
 ** Example: A Picture Language
 
+#+BEGIN_SRC scheme
+(define wave2 (beside wave (flip-vert wave)))
+#+END_SRC

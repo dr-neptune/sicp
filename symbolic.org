@@ -18,12 +18,18 @@ In order to manipulate symbols we need a new element in our language: the abilit
 (list 'a b)
 #+END_SRC
 
+#+RESULTS:
+| a | 2 |
+
 Quotation also allows us to type in compound objects, using the conventional printed representation for lists 
 
 #+BEGIN_SRC scheme
 (car '(a b c))
 (cdr '(a b c))
 #+END_SRC
+
+#+RESULTS:
+| b | c |
 
 eq? takes two symbols as arguments and test whether they are the same. With this we can implement memq, which takes two args: a symbol and a list. If the symbol is not contained in the list, then memq returns false, otherwise it returns the sublist beginning with the first occurrence of the symbol 
 
@@ -64,11 +70,17 @@ eq? takes two symbols as arguments and test whether they are the same. With this
 (car ''abracadabra)
 #+END_SRC
 
+#+RESULTS:
+: quote
+
 Eva is passing car a list of symbolic objects, ' and 'abracadabra. We see this by asking for the cdr and getting back abracadabra
 
 #+BEGIN_SRC scheme
 (cdr ''abracadabra)
 #+END_SRC
+
+#+RESULTS:
+| abracadabra |
 
 ** Example: Symbolic Differentiation 
 
@@ -98,6 +110,8 @@ Consider the design of a procedure that performs symbolic differentiation of alg
 
 (define (make-product m1 m2))
 #+END_SRC
+
+#+RESULTS:
 
 Using these primitives, we can write the rules for differentiation as follows:
 
@@ -266,6 +280,9 @@ This is correct, but the program doesn't manage to simplify the result of the ex
        'x)
 #+END_SRC
 
+#+RESULTS:
+| + | (* x y) | (* y (+ x 3)) |
+
 The problem of algebraic simplification is complex because a form that may be simplest for one purpose may not be for another 
 
 *** Exercise 2.56 
@@ -315,5 +332,163 @@ The problem of algebraic simplification is complex because a form that may be si
 (deriv '(** x 5) 'x)
 #+END_SRC
 
+#+RESULTS:
+| 5 | (** x 4) |
+
 *** Exercise 2.57 
+
+Extend the differentiation program to handle sums and products of arbitrary numbers of two or more terms by only changing the representation of sums and products. 
+
+#+BEGIN_SRC scheme
+(define (accumulate op initial sequence)
+  (if (null? sequence)
+      initial
+      (op (car sequence)
+          (accumulate op initial (cdr sequence)))))
+
+(define (augend s)
+  (accumulate make-sum 0 (cddr s)))
+
+(define (multiplicand p)
+  (accumulate make-product 1 (cddr p)))
+#+END_SRC
+
+#+RESULTS:
+: multiplicand
+
+
+#+BEGIN_SRC scheme
+(deriv '(* x y (+ x 3)) 'x)
+#+END_SRC
+
+*** Exercise 2.58 
+
+Solution stolen from schemewiki -- This is vpraid's modified shunting yard algorithm (by Dijkstra): 
+
+https://en.wikipedia.org/wiki/Shunting-yard_algorithm
+
+
+Pseudocode: 
+
+1.  While there are tokens to be read:
+2.        Read a token
+3.        If it's a number add it to queue
+4.        If it's an operator
+5.               While there's an operator on the top of the stack with greater precedence:
+6.                       Pop operators from the stack onto the output queue
+7.               Push the current operator onto the stack
+8.        If it's a left bracket push it onto the stack
+9.        If it's a right bracket 
+10.            While there's not a left bracket at the top of the stack:
+11.                     Pop operators from the stack onto the output queue.
+12.             Pop the left bracket from the stack and discard it
+13. While there are operators on the stack, pop them to the queue
+
+- So for step 2 and 3 we need a number? and operator? function 
+
+- For the rest of the steps we need a stack implementation (can be done with lists) and to create left and right stacks for the numbers and operators 
+
+- This procedure gives us reverse polish notation, when we really want prefix notation. In order to account for this, we need to make sure that operators are popped before numbers 
+
+
+#+BEGIN_SRC scheme
+(define (make-difference a1 a2)
+  (cond ((=number? a1 0) a2)
+        ((=number? a2 0) a1)
+        ((and (number? a1)
+              (number? a2))
+         (- a1 a2))
+        (else (list '- a1 a2))))
+
+(define (op? o)
+  (or (eq? o '+)
+      (eq? o '-)
+      (eq? o '*)
+      (eq? o '**)))
+  
+(define (precedence o) 
+  (cond ((eq? o '+) 1) 
+        ((eq? o '-) 1) 
+        ((eq? o '*) 2) 
+        ((eq? o '**) 3) 
+        (else (error "unknown operator: PRECEDENCE" o)))) 
+  
+(define (associativity o) 
+  (cond ((eq? o '+) 'left) 
+        ((eq? o '-) 'left) 
+        ((eq? o '*) 'left) 
+        ((eq? o '**) 'right) 
+        (else (error "unknown operator: ASSOCIATIVITY" o)))) 
+  
+(define (shunting-yard exp) 
+  (define (apply-op output op) 
+    (let ((lhs (cadr output)) 
+          (rhs (car output))) 
+      (cons
+       (cond ((eq? op '+) (make-sum lhs rhs)) 
+             ((eq? op '-) (make-difference lhs rhs)) 
+             ((eq? op '*) (make-product lhs rhs)) 
+             ((eq? op '**) (make-exponentiation lhs rhs)) 
+             (else error "unknown operator: APPLY-OP" op)) 
+       (cddr output)))) 
+
+  (define (iter output operators exp)
+    (if (null? exp) 
+        (if (null? operators) ; pushing whatever is left in op stack into output 
+            (car output) 
+            (iter (apply-op output (car operators))
+                  (cdr operators) exp)) 
+        (let ((token (car exp)))
+          (cond ((list? token)     ; pushing sublist into output 
+                 (iter (cons (shunting-yard token) output) operators (cdr exp))) 
+                ((op? token) ; pushing new operation into output or op stack 
+                 (if (and (not (null? operators))
+                          (or (and (eq? (associativity token) 'left)
+                                   (<= (precedence token)
+                                       (precedence (car operators))))
+                              (and (eq? (associativity token) 'right)
+                                   (< (precedence token) 
+                                      (precedence (car operators)))))) 
+                     (iter (apply-op output (car operators))
+                           (cdr operators)
+                           exp)
+                     (iter output
+                           (cons token operators)
+                           (cdr exp)))) 
+                (else ; pushing new number or variable into output 
+                 (iter (cons token output)
+                       operators
+                       (cdr exp))))))) 
+  (iter '() '() exp))
+#+END_SRC
+
+
+#+BEGIN_SRC scheme
+(shunting-yard '(x * y (x + 3)))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(define (deriv-infix exp var)
+  (deriv (shunting-yard exp) var))
+#+END_SRC
+
+#+RESULTS:
+: deriv-infix
+
+#+BEGIN_SRC scheme
+(deriv '(* x y (+ x 3)) 'x)
+#+END_SRC
+
+#+RESULTS:
+| + | (* x y) | (* y (+ x 3)) |
+
+#+BEGIN_SRC scheme
+(deriv-infix '(x * y (x + 3)) 'x)
+(deriv-infix '(x + 3 * (x + y + 2)) 'y)
+#+END_SRC
+
+#+RESULTS:
+: 3
+
+*** Example: Representing Sets 
 
