@@ -44,7 +44,6 @@ eq? takes two symbols as arguments and test whether they are the same. With this
 #+END_SRC
 
 #+RESULTS:
-| apple | pear |
 
 *** Exercise 2.54 
 
@@ -490,5 +489,176 @@ Pseudocode:
 #+RESULTS:
 : 3
 
-*** Example: Representing Sets 
+** Example: Representing Sets 
+
+Thus far we have built representations for two kinds of compound data objects: rational numbers and algebraic expressions. In one we had the choice of simplifying the expressions at either construction time or selection time. 
+
+When we turn to the representation of sets, the choice of representation is not so obvious. 
+
+Informally, a set is simply a collection of distinct objects. To give a more precise definition, we can employ the method of data abstraction and define sets by specifying the operations that are to be used on sets. 
+
+These are: 
+
+- union-set
+- intersection-set
+- element-of-set?
+- adjoin-set
+
+From the viewpoint of data abstraction, we are free to design any representation that implements these operations in a way consistent with the interpretations given above. 
+
+*** Sets as unordered lists 
+
+#+BEGIN_SRC scheme
+(define (element-of-set? x set)
+  (cond ((null? set) #f)
+        ((equal? x (car set)) #t)
+        (else (element-of-set? x (cdr set)))))
+
+(define (adjoin-set x set)
+  (if (element-of-set? x set)
+      set
+      (cons x set)))
+
+(define (intersection-set set1 set2)
+  (cond ((or (null? set1)
+             (null? set2)) '())
+        ((element-of-set? (car set1) set2)
+         (cons (car set1)
+               (intersection-set (cdr set1) set2)))
+        (else (intersection-set (cdr set1) set2))))
+#+END_SRC
+
+- element-of-set is O(n)
+- adjoin-set is O(n)
+- intersection-set has to check for each element of each set, so it could be O(n^2)
+
+*** Exercise 2.59 
+
+Implement the union-set operation for the unordered-list representation of sets 
+
+#+BEGIN_SRC scheme
+(define (union-set set1 set2)
+  (cond ((and (null? set1)
+              (null? set2)) '())
+        ((null? set1) set2)
+        ((null? set2) set1)
+        ((not (element-of-set? (car set1) set2))
+         (cons (car set1)
+               (union-set (cdr set1) set2)))
+        (else (union-set (cdr set1) set2))))
+
+(union-set '(1 2 3 4) '(2 3 4 5))
+(union-set '(1 2 3) '(1 2 3))
+#+END_SRC
+
+*** Exercise 2.60 
+
+Suppose we allow duplicates. Design procedures that operate on this representation. 
+
+#+BEGIN_SRC scheme
+(define (element-of-set-dups? x set)
+  (element-of-set? x set))
+
+(define (adjoin-set-dups x set)
+  (cons x set))
+
+(define (drop-first x set)
+  (if (equal? x (car set))
+      (cdr set)
+      (cons (car set)
+            (drop-first x (cdr set)))))
+
+(define (intersection-set-dups set1 set2)
+  (cond ((or (null? set1)
+             (null? set2)) '())
+        ((element-of-set? (car set1) set2)
+         (cons
+          (car set1)
+          (intersection-set-dups (cdr set1)
+                                 (drop-first
+                                  (car set1) set2))))
+        (else (intersection-set-dups (cdr set1) set2))))
+
+(intersection-set-dups '(1 2 3 3 3 4 4 4 4) '(2 2 3 3 4 4 5))
+
+(define (union-set-dups set1 set2)
+  (append set1 set2))
+
+(union-set-dups '(1 2 2 3 3 4 4) '(1 2 2 2 3 3 3 4 4 4))
+#+END_SRC
+
+How does the efficiency of each compare with the corresponding procedure for the non-duplicate representation? 
+
+- element of set is the same, O(n)
+- adjoin-set is constant time O(1)
+- union-set with cons is constant time, with append it traverses the first set so O(n)
+- intersection-set is O(n^2)
+
+
+Are there applications for which you would use this representation in preference to the non-duplicate one? 
+
+For applications in which we would expect to be mostly performing unions and adjoins as opposed to intersections. Also since this repeated set is such a normal thing, its just an unconstrained data structure. We would only need the regular set functions when we want that exact uniqueness constraint. 
+
+*** Sets as ordered lists 
+
+One way to speed up our set operations is to change the representation so that the set elements are listed in increasing order. 
+
+An advantage or ordering shows up in element-of-set?: In checking for the presence of an item, we no longer have to scan the entire set. 
+
+#+BEGIN_SRC scheme
+(define (element-of-set-ordered? x set)
+  (cond ((null? set) #f)
+        ((= x (car set)) #t)
+        ((< x (car set)) #f)
+        (else (element-of-set-ordered? x (cdr set)))))
+
+(element-of-set-ordered? 4 '(1 2 3 4 5 6))
+#+END_SRC
+
+We obtain a more impressive speed-up with intersection-set. 
+
+- Compare the elements x1 and x2 of the first two sets. If x1 == x2, then that gives an element of the intersection and we can return that element and the cdrs of the two sets.
+- If x1 < x2, since x2 is the smallest element of set2 we can drop x1.
+
+#+BEGIN_SRC scheme
+(define (intersection-set-o set1 set2)
+  (if (or (null? set1)
+          (null? set2))
+      '()
+      (let ((x1 (car set1))
+            (x2 (car set2)))
+        (cond ((= x1 x2)
+               (cons x1
+                     (intersection-set-o (cdr set1)
+                                         (cdr set2))))
+              ((< x1 x2)
+               (intersection-set-o (cdr set1) set2))
+              ((< x2 x1)
+               (intersection-set-o set1 (cdr set2)))))))
+
+(intersection-set-o '(1 2 4 6 7 8 9) '(2 3 4 6 8 10))
+#+END_SRC
+
+Observe that at each step we reduce the intersection problem to computing intersections of smaller sets. Thus, the number of steps required is at most the sum of the sizes of set1 and set2, rather than the product of sizes as with the unordered representation. This is O(n + m) = O(n) growth rather than O(n^2).
+
+*** Exercise 2.61
+
+Give an implementation of adjoin-set using the ordered representation.
+
+#+BEGIN_SRC scheme
+(define (adjoined-set-o x set)
+  (cond ((null? set) x)
+        ((= x (car set)) set)
+        ((> x (car set))
+         (cons (car set)
+               (adjoined-set-o x (cdr set))))
+        (else (cons x (cdr set)))))
+
+(adjoin-set-o 5 '(1 2 3 4 6 7 8))
+#+END_SRC
+
+*** Exercise 2.62 
+
+Give an O(n) implementation of union-set for sets represented as ordered lists. 
+
 
