@@ -547,6 +547,7 @@ So n would look like
 #+END_SRC
 
 #+RESULTS:
+: #[constant 42 #x2]
 
 **** Exercise 2.7
 
@@ -566,7 +567,7 @@ Define selectors upper-bound and lower-bound to complete the implementation.
 #+END_SRC
 
 #+RESULTS:
-: #[constant 41 #x2]
+: #[constant 42 #x2]
 
 **** Exercise 2.8 
 
@@ -613,6 +614,8 @@ For a function to be a function of the width of two intervals, we need to have t
 (sub-interval i_1_2 i_2_2)
 #+END_SRC
 
+#+RESULTS:
+
 All of the above have widths of 7, regardless of the starting and ending values for our intervals. 
 
 In contrast, let's look at this with multiplication and division
@@ -647,15 +650,18 @@ Now we have 4 totally different answers.
 #+END_SRC
 
 #+RESULTS:
-: 
-: ;Error: Division spans zero
-: ;To continue, call RESTART with an option number:
-: ; (RESTART 4) => Return to read-eval-print level 4.
-: ; (RESTART 3) => Return to read-eval-print level 3.
-: ; (RESTART 2) => Return to read-eval-print level 2.
-: ; (RESTART 1) => Return to read-eval-print level 1.
-: 
-: 5 error> 
+#+begin_example
+
+;Error: Division spans zero
+;To continue, call RESTART with an option number:
+; (RESTART 5) => Return to read-eval-print level 5.
+; (RESTART 4) => Return to read-eval-print level 4.
+; (RESTART 3) => Return to read-eval-print level 3.
+; (RESTART 2) => Return to read-eval-print level 2.
+; (RESTART 1) => Return to read-eval-print level 1.
+
+6 error> 
+#+end_example
 
 #+BEGIN_SRC scheme :results output
 (print-interval (div-interval i_1 i_2))
@@ -680,6 +686,9 @@ Now we have 4 totally different answers.
                    (max p1 p2 p3 p4))))
 #+END_SRC
 
+#+RESULTS:
+: mul-interval
+
 #+BEGIN_SRC scheme
 (define (make-center-width c w)
   (make-interval (- c w) (+ c w)))
@@ -696,7 +705,7 @@ Now we have 4 totally different answers.
 #+END_SRC
 
 #+RESULTS:
-: #[constant 41 #x2]
+: #[constant 42 #x2]
 
 **** Exercise 2.12 
 
@@ -711,16 +720,15 @@ Define a constructor make-center-percent that takes a center and a percentage to
 
 #+BEGIN_SRC scheme :results output
 (define (make-center-percent center tolerance)
-  (make-center-width center (width (* center tolerance))))
+  (let ((width (* center (/ tolerance 100.0))))
+    (make-interval (- center width)
+                   (+ center width))))
 
-(make-center-percent (center i_1) .2)
+(print-interval (make-center-percent (center i_1) .2))
 #+END_SRC
 
 #+RESULTS:
-#+begin_example
-
-.7000000000000001
-#+end_example
+: [3.493, 3.507]
 
 #+BEGIN_SRC scheme
 (define (percent interval)
@@ -738,10 +746,74 @@ Define a constructor make-center-percent that takes a center and a percentage to
 Show that under the assumption of small percentage tolerances there is a simple formula for the approximate percentage tolerance of the product of two intervals in terms of the tolerances of the factors. You may simplify the problem by assuming that all numbers are positive. 
 
 #+BEGIN_SRC scheme
-(make-center-percent (center i_1) 0.2) ; .7
-(make-center-percent (center i_2) 0.2) ; .6
-(make-center-percent (center (mul-interval i_1 i_2)) .2) ; 2.7
+(percent (make-center-percent (center i_1) 0.02))
+(percent (make-center-percent (center i_2) 0.02))
+
+(percent (mul-interval (make-center-percent (center i_1) 0.02)
+                       (make-center-percent (center i_2) 0.02)))
+
+(percent (make-center-percent (center i_1) 0.3))
+(percent (make-center-percent (center i_2) 0.9))
+
+(percent (mul-interval (make-center-percent (center i_1) 0.3)
+                       (make-center-percent (center i_2) 0.9)))
+
 #+END_SRC
 
-Intuitively, we may assume that we can do the following: 
+The percentage tolerance of the product of the two intervals is the sum of the tolerances. This doesn't make much sense when we get a sum of tolerances greater than 1, which explains the assumption of small percentage tolerances. 
+
+#+BEGIN_SRC scheme
+(define (par1 r1 r2)
+  (div-interval
+   (mul-interval r1 r2)
+   (add-interval r1 r2)))
+
+(define (par2 r1 r2)
+  (let ((one (make-interval 1 1)))
+    (div-interval
+     one
+     (add-interval
+      (div-interval one r1)
+      (div-interval one r2)))))
+#+END_SRC
+
+#+RESULTS:
+: #[constant 42 #x2]
+
+**** Exercise 2.14 
+
+#+BEGIN_SRC scheme :results output
+(define i_a (make-interval 1.2 1.3))
+(define i_b (make-interval 1.0001 1.0002))
+
+(print-interval (par1 i_a i_b))
+#+END_SRC
+
+#+RESULTS:
+: [.521745935136075, .5910004090723149]
+
+#+BEGIN_SRC scheme :results output
+(print-interval (par2 i_a i_b))
+#+END_SRC
+
+#+RESULTS:
+: [.5454842961683559, .5652812798887054]
+
+#+BEGIN_SRC scheme :results output
+(print-interval (par1 (make-center-percent (center i_a) (percent i_a))
+                      (make-center-percent (center i_b) (percent i_b))))
+#+END_SRC
+
+#+RESULTS:
+: [.5217459351360753, .5910004090723149]
+
+#+BEGIN_SRC scheme :results output
+(print-interval (par2 (make-center-percent (center i_a) (percent i_a))
+                      (make-center-percent (center i_b) (percent i_b))))
+#+END_SRC
+
+#+RESULTS:
+: [.545484296168356, .5652812798887054]
+
+**** Exercise 2.15 
 
