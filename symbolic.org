@@ -661,4 +661,120 @@ Give an implementation of adjoin-set using the ordered representation.
 
 Give an O(n) implementation of union-set for sets represented as ordered lists. 
 
+- check if car s1 = car s2 
+  if yes, cons s1 and move both forward 
+- check if car s1 < car s2 
+  if yes, cons it 
+  if no, cons car s2 and move both forward 
 
+#+BEGIN_SRC scheme
+(define (union-set-o set1 set2)
+  (cond ((and (null? set1)
+              (null? set2))
+         '())
+        ((null? set1) set2)
+        ((null? set2) set1)
+        ((= (car set1) (car set2))
+         (cons (car set1)
+               (union-set-o (cdr set1) (cdr set2))))
+        ((< (car set1) (car set2))
+         (cons (car set1)
+               (union-set-o (cdr set1) set2)))
+        (else (cons (car set2)
+                    (union-set-o set1 (cdr set2))))))
+
+(union-set-o '(1 3 5 7) '(0 2 4 6 8))
+#+END_SRC
+
+*** Sets as Binary Trees 
+
+We can do better than ordered list representation by arranging the set elements in the form of a tree. The only thing that we require for a valid representation is that all the elements in the left subtree be smaller than the node entry and all the entries in the right subtree be larger. 
+
+We can represent trees by using lists. Each node will be a list of three items:
+
+- The entry at the node
+- The left subtree
+- The right subtree
+
+A left or a right subtree of the empty list will indicate that there is no subtree connected there. 
+
+#+BEGIN_SRC scheme
+(define (entry tree)
+  (car tree))
+
+(define (left-branch tree)
+  (cadr tree))
+
+(define (right-branch tree)
+  (caddr tree))
+
+(define (make-tree entry left right)
+  (list entry left right))
+#+END_SRC
+
+We are representing sets in terms of trees, and trees in terms of lists -- in effect, a data abstraction built upon a data abstraction. 
+
+
+#+BEGIN_SRC scheme
+(define (element-of-set-t? x set)
+  (cond ((null? set) #f)
+        ((= x (entry set)) #t)
+        ((< x (entry set))
+         (element-of-set-t? x (left-branch set)))
+        (else (element-of-set-t? x (right-branch set)))))
+#+END_SRC
+
+Adjoining an element to a set is implemented similarly. 
+
+#+BEGIN_SRC scheme
+(define (adjoin-set-t x set)
+  (cond ((null? set)
+         (make-tree x '() '()))
+        ((= x (entry set)) set)
+        ((< x (entry set))
+         (make-tree (entry set)
+                    (adjoin-set-t x (left-branch set))
+                    (right-branch set)))
+        (else
+         (make-tree (entry set)
+                    (left-branch set)
+                    (adjoin-set-t x (right-branch set))))))
+#+END_SRC
+
+The claim that searching the tree can be performed in a logarithmic number of steps rests on the assumption that the tree is balanced. 
+
+We can't be certain that a tree is balanced, and even if it were, we can't guarantee that it will stay balanced according to its current definition. 
+
+We need to define a procedure that will take all the elements of the current tree and rebalance them. Then we could perform this transformation after every few adjoin-set operations to keep the set in balance. 
+
+*** Exercise 2.63
+
+Each of the following two procedures converts a binary tree to a list. 
+
+#+BEGIN_SRC scheme
+(define (tree->list-1 tree)
+  (if (null? tree)
+      '()
+      (append (tree->list-1 (left-branch tree))
+              (cons (entry tree)
+                    (tree->list-1 (right-branch tree))))))
+
+(define (tree->list-2 tree)
+  (define (copy-to-list tree result-list)
+    (if (null? tree)
+        result-list
+        (copy-to-list (left-branch tree)
+                      (cons (entry tree)
+                            (copy-to-list
+                             (right-branch tree)
+                             result-list)))))
+  (copy-to-list '()))
+#+END_SRC
+
+a. Do the two procedures produce the same result for every tree? If not how do the results differ? What lists do the two procedures produce for the trees in figure 2.16?
+
+#+BEGIN_SRC scheme
+(define ex-tree-1 (make-tree 7 (make-tree 3 1 5) (make-tree 9 '() 11)))
+
+(ex-tree-1)
+#+END_SRC
