@@ -152,7 +152,6 @@ Define a better version of make-rat that handles both positive and negative argu
 
 *** Abstraction Barriers 
 
-
 #+DOWNLOADED: /tmp/screenshot.png @ 2020-02-17 17:08:00
 [[file:Data Abstraction/screenshot_2020-02-17_17-08-00.png]]
 
@@ -266,7 +265,6 @@ how points are implemented (cons, car, cdr)
      (abs (- (y-point (top-left r))
              (y-point (bottom-right r))))))
 
-
 (define (rect-perimeter r)
   (+ (* 2 (abs (- (x-point (top-left r))
                   (x-point (bottom-right r)))))
@@ -275,7 +273,10 @@ how points are implemented (cons, car, cdr)
 #+END_SRC
 
 #+BEGIN_SRC scheme :results output
-(print-point (make-rectangle (make-point 2 3) (make-point 5 1)))
+(print-point
+ (make-rectangle
+  (make-point 2 3)
+  (make-point 5 1)))
 #+END_SRC
 
 #+RESULTS:
@@ -392,6 +393,12 @@ This example demonstrates that the ability to manipulate procedures as objects a
 
 (define (cdr z)
   (z (lambda (p q) q)))
+
+(cdr (cons 1 2))
+(cdr (lambda (m) (m 1 2))) 
+((lambda (m) (m 1 2)) (lambda (p q) q))
+(((lambda (p q) q) 1 2))
+2
 #+END_SRC
 
 #+RESULTS:
@@ -432,7 +439,7 @@ I'm not sure I understand the question entirely. It seems to me that every non n
 #+END_SRC
 
 #+RESULTS:
-: #[constant 40 #x2]
+: #[constant 42 #x2]
 
 #+BEGIN_SRC scheme
 (largest-power 2 64)
@@ -547,7 +554,6 @@ So n would look like
 #+END_SRC
 
 #+RESULTS:
-: #[constant 42 #x2]
 
 **** Exercise 2.7
 
@@ -567,13 +573,11 @@ Define selectors upper-bound and lower-bound to complete the implementation.
 #+END_SRC
 
 #+RESULTS:
-: #[constant 42 #x2]
+: #[constant 40 #x2]
 
 **** Exercise 2.8 
 
 Describe how the difference of two intervals may be computed. Define a corresponding subtraction procedure called sub-interval
-
-What do we do is a is a strict subset of b in b - a? How does one return two intervals?
 
 #+BEGIN_SRC scheme
 (define (sub-interval a b)
@@ -605,7 +609,6 @@ For a function to be a function of the width of two intervals, we need to have t
 (define i_2 (make-interval 1 5))
 (define i_1_2 (make-interval -1 2))
 (define i_2_2 (make-interval 6 10))
-
 
 (add-interval i_1 i_2)
 (sub-interval i_1 i_2)
@@ -716,7 +719,68 @@ Define a constructor make-center-percent that takes a center and a percentage to
 #+END_SRC
 
 #+RESULTS:
-: [2, 5]
+#+begin_example
+
+;The object (2 . 5), passed as the first argument to integer-remainder, is not the correct type.
+;To continue, call RESTART with an option number:
+; (RESTART 55) => Specify an argument to use in its place.
+; (RESTART 54) => Return to read-eval-print level 54.
+; (RESTART 53) => Return to read-eval-print level 53.
+; (RESTART 52) => Return to read-eval-print level 52.
+; (RESTART 51) => Return to read-eval-print level 51.
+; (RESTART 50) => Return to read-eval-print level 50.
+; (RESTART 49) => Return to read-eval-print level 49.
+; (RESTART 48) => Return to read-eval-print level 48.
+; (RESTART 47) => Return to read-eval-print level 47.
+; (RESTART 46) => Return to read-eval-print level 46.
+; (RESTART 45) => Return to read-eval-print level 45.
+; (RESTART 44) => Return to read-eval-print level 44.
+; (RESTART 43) => Return to read-eval-print level 43.
+; (RESTART 42) => Return to read-eval-print level 42.
+; (RESTART 41) => Return to read-eval-print level 41.
+; (RESTART 40) => Return to read-eval-print level 40.
+; (RESTART 39) => Return to read-eval-print level 39.
+; (RESTART 38) => Return to read-eval-print level 38.
+; (RESTART 37) => Return to read-eval-print level 37.
+; (RESTART 36) => Return to read-eval-print level 36.
+; (RESTART 35) => Return to read-eval-print level 35.
+; (RESTART 34) => Return to read-eval-print level 34.
+; (RESTART 33) => Return to read-eval-print level 33.
+; (RESTART 32) => Return to read-eval-print level 32.
+; (RESTART 31) => Return to read-eval-print level 31.
+; (RESTART 30) => Return to read-eval-print level 30.
+; (RESTART 29) => Return to read-eval-print level 29.
+; (RESTART 28) => Return to read-eval-print level 28.
+; (RESTART 27) => Return to read-eval-print level 27.
+; (RESTART 26) => Return to read-eval-print level 26.
+; (RESTART 25) => Return to read-eval-print level 25.
+; (RESTART 24) => Return to read-eval-print level 24.
+; (RESTART 23) => Return to read-eval-print level 23.
+; (RESTART 22) => Return to read-eval-print level 22.
+; (RESTART 21) => Return to read-eval-print level 21.
+; (RESTART 20) => Return to read-eval-print level 20.
+; (RESTART 19) => Return to read-eval-print level 19.
+; (RESTART 18) => Return to read-eval-print level 18.
+; (RESTART 17) => Return to read-eval-print level 17.
+; (RESTART 16) => Return to read-eval-print level 16.
+; (RESTART 15) => Return to read-eval-print level 15.
+; (RESTART 14) => Return to read-eval-print level 14.
+; (RESTART 13) => Return to read-eval-print level 13.
+; (RESTART 12) => Return to read-eval-print level 12.
+; (RESTART 11) => Return to read-eval-print level 11.
+; (RESTART 10) => Return to read-eval-print level 10.
+; (RESTART 9) => Return to read-eval-print level 9.
+; (RESTART 8) => Return to read-eval-print level 8.
+; (RESTART 7) => Return to read-eval-print level 7.
+; (RESTART 6) => Return to read-eval-print level 6.
+; (RESTART 5) => Return to read-eval-print level 5.
+; (RESTART 4) => Return to read-eval-print level 4.
+; (RESTART 3) => Return to read-eval-print level 3.
+; (RESTART 2) => Return to read-eval-print level 2.
+; (RESTART 1) => Return to read-eval-print level 1.
+
+55 error> 
+#+end_example
 
 #+BEGIN_SRC scheme :results output
 (define (make-center-percent center tolerance)

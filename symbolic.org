@@ -768,13 +768,79 @@ Each of the following two procedures converts a binary tree to a list.
                             (copy-to-list
                              (right-branch tree)
                              result-list)))))
-  (copy-to-list '()))
+  (copy-to-list tree '()))
 #+END_SRC
 
 a. Do the two procedures produce the same result for every tree? If not how do the results differ? What lists do the two procedures produce for the trees in figure 2.16?
 
-#+BEGIN_SRC scheme
-(define ex-tree-1 (make-tree 7 (make-tree 3 1 5) (make-tree 9 '() 11)))
+#+BEGIN_SRC scheme :results output
+(define ex-tree-1 (make-tree 7 (make-tree 3
+                                          (make-tree 1 '() '())
+                                          (make-tree 5 '() '()))
+                             (make-tree 9
+                                        '()
+                                        (make-tree 11 '() '()))))
 
-(ex-tree-1)
+(define ex-tree-2 (make-tree 3
+                             (make-tree 1 '() '())
+                             (make-tree 7
+                                        (make-tree 5 '() '())
+                                        (make-tree 9
+                                                   '()
+                                                   (make-tree 11 '() '())))))
+
+(define ex-tree-3 (make-tree 5 (make-tree 3
+                                          (make-tree 1 '() '())
+                                          '())
+                             (make-tree 9
+                                        (make-tree 7 '() '())
+                                        (make-tree 11 '() '()))))
 #+END_SRC
+
+#+BEGIN_SRC scheme
+(tree->list-1 ex-tree-1)
+(tree->list-2 ex-tree-1)
+
+(tree->list-1 ex-tree-2)
+(tree->list-2 ex-tree-2)
+
+(tree->list-1 ex-tree-3)
+(tree->list-2 ex-tree-3)
+#+END_SRC
+
+The trees are all consistent across both algorithms. 
+
+b. Do the two procedures have the same order of growth in the number of steps required to convert a balanced tree with n elements to a list? If not, which one grows more slowly? 
+
+Looking back at the definitions 
+
+#+BEGIN_SRC scheme
+(define (tree->list-1 tree)
+  (if (null? tree)
+      '()
+      (append (tree->list-1 (left-branch tree))
+              (cons (entry tree)
+                    (tree->list-1 (right-branch tree))))))
+
+(define (tree->list-2 tree)
+  (define (copy-to-list tree result-list)
+    (if (null? tree)
+        result-list
+        (copy-to-list (left-branch tree)
+                      (cons (entry tree)
+                            (copy-to-list
+                             (right-branch tree)
+                             result-list)))))
+  (copy-to-list tree '()))
+#+END_SRC
+
+For tree->list1: 
+
+- append is O(n), but given that we are looking at balanced binary trees, we should see O(n/2) + O((n - 1)/2*2) + O((n - 2)/2*2*2).
+- Cons is constant time O(1)
+- The time complexity of this algorithm is O(nlogn)
+
+For tree->list2: 
+
+- At each step, only a cons is performed
+- The time complexity of this algorithm is O(n)
