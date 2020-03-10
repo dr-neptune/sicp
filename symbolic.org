@@ -19,7 +19,6 @@ In order to manipulate symbols we need a new element in our language: the abilit
 #+END_SRC
 
 #+RESULTS:
-| a | 2 |
 
 Quotation also allows us to type in compound objects, using the conventional printed representation for lists 
 
@@ -506,7 +505,7 @@ These are:
 
 From the viewpoint of data abstraction, we are free to design any representation that implements these operations in a way consistent with the interpretations given above. 
 
-*** Sets as unordered lists 
+** Sets as unordered lists 
 
 #+BEGIN_SRC scheme
 (define (element-of-set? x set)
@@ -599,7 +598,7 @@ Are there applications for which you would use this representation in preference
 
 For applications in which we would expect to be mostly performing unions and adjoins as opposed to intersections. Also since this repeated set is such a normal thing, its just an unconstrained data structure. We would only need the regular set functions when we want that exact uniqueness constraint. 
 
-*** Sets as ordered lists 
+** Sets as ordered lists 
 
 One way to speed up our set operations is to change the representation so that the set elements are listed in increasing order. 
 
@@ -686,7 +685,7 @@ Give an O(n) implementation of union-set for sets represented as ordered lists.
 (union-set-o '(1 3 5 7) '(0 2 4 6 8))
 #+END_SRC
 
-*** Sets as Binary Trees 
+** Sets as Binary Trees 
 
 We can do better than ordered list representation by arranging the set elements in the form of a tree. The only thing that we require for a valid representation is that all the elements in the left subtree be smaller than the node entry and all the entries in the right subtree be larger. 
 
@@ -845,7 +844,6 @@ For tree->list2:
 - At each step, only a cons is performed
 - The time complexity of this algorithm is O(n)
 
-
 *** Exercise 2.64 
 
 The following procedure list->tree converts an ordered list to a balanced binary tree. The helper procedure partial-tree takes as arguments an integer n and a list of at least n elements and constructs a balanced tree containing the first n elements of the list. 
@@ -915,7 +913,127 @@ The result returned by partial-tree is a pair (formed with cons) whose car is th
 
 At each step we are splitting the set into middle, left and right trees. Each of the procedures called in this are constant time. Since we visit each node in turn, we have $sum_{i = 1}^n O(1) = O(n)$
 
-
 *** Exercise 2.65 
 
 Use the results of 2.63 and 2.64 to give O(n) implementations of union-set and intersection-set for sets implemented as balanced binary trees.
+
+#+BEGIN_SRC scheme
+(define (union-set-t set1 set2)
+  (cond ((and (null? set1)
+              (null? set2)) '())
+        ((null? set1) set2)
+        ((null? set2) set1)
+        (else (list->tree (union-set-o (tree->list-2 set1)
+                                       (tree->list-2 set2))))))
+
+(define set-tree-1 (list->tree '(1 2 3 4 5)))
+(define set-tree-2 (list->tree '(2 3 4 5 6)))
+
+(union-set-t set-tree-1 set-tree-2)
+
+(define (intersection-set-t set1 set2)
+  (cond ((and (null? set1)
+              (null? set2)) '())
+        ((null? set1) set2)
+        ((null? set2) set1)
+        (else (list->tree (intersection-set-o (tree->list-2 set1)
+                                              (tree->list-2 set2))))))
+
+(intersection-set-t set-tree-1 set-tree-2)
+#+END_SRC
+
+** Sets and Information Retrieval 
+
+The techniques discussed here appear again and again in applications involving information retrieval. 
+
+Suppose we have a database and we represent it as a set of records. If the set of records is implemented as an unordered list, we could use 
+
+#+BEGIN_SRC scheme
+(define (lookup given-key set-of-records)
+  (cond ((null? set-of-records) #f)
+        ((equal? given-key
+                 (key (car set-of-records)))
+         (car set-of-records))
+        (else
+         (lookup given-key
+                 (cdr set-of-records)))))
+#+END_SRC
+
+*** Exercise 2.66
+
+Implement the lookup procedure for the case where the set of records is structured as a binary tree, ordered by the numerial values of the keys. 
+
+#+BEGIN_SRC scheme
+(define (lookup given-key set-of-records)
+  (cond ((null? set-of-records) #f)
+        ((= given-key
+            (key (entry set-of-records)))
+         (car set-of-recordrs))
+        ((< given-key
+            (key (entry set-of-records)))
+         (lookup given-key (left-branch set-of-records)))
+        (else (lookup given-key (right-branch set-of-records))))
+#+END_SRC
+
+** Example: Huffman Encoding Trees
+
+This section provides practice in the use of list structure and data abstraction to manipulate sets and trees. The application is to methods for representing data as sequences of ones and zeros (bits). 
+
+Codes such as ASCII and the A-through-H code described in the book are known as fixed-length codes, because they represent each symbol in the message with the same number of bits. 
+
+It is sometimes advantageous to use variable-length codes, in which different symbols may be represented by using different numbers of bits. A good example of this is morse code. 
+
+In general, if our messages are such that some symbols appear very frequently and some very rarely, we can encode data more efficiently.
+
+Another solution is to design a code in such a way that no complete code for any symbol is the beginning (or prefix) of the code for another symbol. Such a code is called a prefix code. 
+
+In general, we can attain significant savings if we use *variable-length prefix* codes that take advantage of the relative frequencies of the symbols in the messages to be encoded. 
+
+One scheme for this is the Huffman encoding method. A Huffman code can be represented as a binary tree whose leaves are symbols that are encoded. At each non-left node of the tree there is a set containing all the symbols which are contained in the leaves below the node. In addition, each symbol at a leaf is assigned a weight (which is its relative frequency), and each non-leaf node contains a weight that is the sum of all weights of the leaves lying below it. 
+
+Given a Huffman tree, we can find the encoding of any symbol by starting at the root and moving down until we reach a leaf that holds the symbol. Each time we move down a left branch we add a 0 to the code, and each time we go down a right branch we add a 1. 
+
+*** Generating Huffman Trees 
+
+Given an alphabet of symbols and their relative frequencies, how do we construct the best code? 
+
+The algorithm for generating a Huffman tree is very simple. The idea is to arrange the tree s.t. the symbols with the lowest frequency appear farthest away from the root. 
+
+Begin with a set of leaf nodes, containing symbols and their frequencies, as determined by the initial data from which the code is to be constructed. 
+
+Now find two leaves with the lowest weights and merge them to produce a node that has these two nodes as its left and right branches. The weight of the new node is the sum of the two weights. 
+
+Remove the two leaves from the original set and replace them by this new node. Now continue this process, until there is only one node left which is the root of the entire tree. 
+
+Initial Leaves
+{(A 8)(B 3)(C 1)(D 1)(E 1)(F 1)(G 1)(H 1)}
+
+Merge
+{(A 8)(B 3)({C D} 2)(E 1)(F 1)(G 1)(H 1)}
+
+Merge
+{(A 8)(B 3)({C D} 2)({E F} 2)(G 1)(H 1)}
+
+Merge
+{(A 8)(B 3)({C D} 2)({E F} 2)({G H} 2)}
+
+Merge
+{(A 8)(B 3)({C D} 2)({E F} 2)({G H} 2)}
+
+Merge
+{(A 8)(B 3)({C D} 2)({E F G H} 4)}
+
+Merge
+{(A 8)({B C D} 5)({E F G H} 4)}
+
+Merge
+{(A 8)({B C D E F G H} 9)}
+
+Merge
+{({A B C D E F G H} 17)}
+
+The algorithm does not always specify a unique tree, because there may not be a unique smallest weight node at each step. Also the choice of the order in which the two nodes are merged is arbitrary. 
+
+
+*** Representing Huffman Trees
+
