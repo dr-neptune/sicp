@@ -1037,3 +1037,192 @@ The algorithm does not always specify a unique tree, because there may not be a 
 
 *** Representing Huffman Trees
 
+Leaves of the tree are represented by a list consisting of the symbol leaf, the symbol at the leaf, and the weight. 
+
+#+BEGIN_SRC scheme
+(define (make-leaf symbol weight)
+  (list 'leaf symbol weight))
+
+(define (leaf? object)
+  (eq? (car object) 'leaf))
+
+(define (symbol-leaf leaf)
+  (cadr leaf))
+
+(define (weight-leaf leaf)
+  (caddr leaf))
+#+END_SRC
+
+A general tree will be 
+
+- a list of a left branch
+- a right branch
+- a set of symbols
+- a weight 
+- The set of symbols will be a list of the symbols rather than some sophisticated set representation
+
+When we make a tree by merging two modes, we obtain the weight of the tree as the sum of the weight of the nodes, and the set of symbols as the union of the sets of symbols for the nodes. 
+
+#+BEGIN_SRC scheme
+(define (make-code-tree left right)
+  (list left
+        right
+        (append (symbols left)
+                (symbols right))
+        (+ (weight left)
+           (weight right))))
+
+(define (left-branch tree)
+  (car tree))
+
+(define (right-branch tree)
+  (cadr tree))
+
+(define (symbols tree)
+  (if (leaf? tree)
+      (list (symbol-leaf tree))
+      (caddr tree)))
+
+(define (weight tree)
+  (if (leaf? tree)
+      (weight-leaf tree)
+      (cadddr tree)))
+#+END_SRC
+
+symbols and weight are examples of generic procedures (procedures that can handle more than one kind of data). 
+
+*** Decoding Procedure
+
+The decoding procedure takes as arguments zeros and ones, together with a Huffman tree. 
+
+The procedure decode-1 takes two arguments: the list of remaining bits and the current position in the tree. It keeps moving down the tree, choosing a left or a right branch according to whether the next bit in the list is a zero or one (this is done with choose-branch).
+
+When it reaches a leaf, it returns a symbol at that leaf as well as the next symbol in the message by consing it onto the result of decoding the rest of the message, starting at the root of the tree. 
+
+#+BEGIN_SRC scheme
+(define (choose-branch bit branch)
+  (cond ((= bit 0) (left-branch branch))
+        ((= bit 1) (right-branch branch))
+        (else (error "bad bit: CHOOSE-BRANCH" bit))))
+
+(define (decode bits tree)
+  (define (decode-1 bits current-branch)
+    (if (null? bits)
+        '()
+        (let ((next-branch
+               (choose-branch
+                (car bits)
+                current-branch)))
+          (if (leaf? next-branch)
+              (cons
+               (symbol-leaf next-branch)
+               (decode-1 (cdr bits) tree))
+              (decode-1 (cdr bits)
+                        next-branch)))))
+  (decode-1 bits tree))
+#+END_SRC
+
+*** Sets of weighted elements 
+
+The tree-generating algorithm requires that we work with sets of leaves and trees, successively merging the two smallest items. Since we will be required to repeatedly find the smallest item in a set, it is convenient to use an ordered representation for this kind of set. 
+
+We will represent a set of leaves and trees as a list of elements, arranged in increasing order of weight. 
+
+#+BEGIN_SRC scheme
+(define (adjoin-set x set)
+  (cond ((null? set) (list x))
+        ((< (weight x)
+            (weight (car set)))
+         (cons x set))
+        (else (cons (car set)
+                    (adjoin-set x (cdr set))))))
+#+END_SRC
+
+The following procedure takes a list of symbol frequency pairs such as ((a 4)(b 2)(c 1)(d 1)) and constructs an initial ordered set of leaves, ready to be merged according to the Huffman algorithm.
+
+#+BEGIN_SRC scheme
+(define (make-leaf-set pairs)
+  (if (null? pairs)
+      '()
+      (let ((pair (car pairs)))
+        (adjoin-set
+         (make-leaf (car pair)
+                    (cadr pair))
+         (make-leaf-set (cdr pairs))))))
+#+END_SRC
+
+*** Exercise 2.67 
+
+Define an encoding tree and a sample message 
+
+#+BEGIN_SRC scheme
+(define sample-tree
+  (make-code-tree
+   (make-leaf 'A 4)
+   (make-code-tree
+    (make-leaf 'B 2)
+    (make-code-tree
+     (make-leaf 'D 1)
+     (make-leaf 'C 1)))))
+
+(define sample-message
+  '(0 1 1 0 0 1 0 1 0 1 1 1 0))
+#+END_SRC
+
+Use the decode procedure to decode the message and give the result 
+
+#+BEGIN_SRC scheme :results org
+(decode sample-message sample-tree)
+#+END_SRC
+
+#+RESULTS:
+#+BEGIN_SRC org
+(a d a b b c a)
+#+END_SRC
+
+*** Exercise 2.68 
+
+The encode procedure takes as arguments a message and a tree and produces the list of bits that gives the encoded message. 
+
+#+BEGIN_SRC scheme
+(define (encode message tree)
+  (if (null? message)
+      '()
+      (append
+       (encode-symbol (car message) tree)
+       (encode (cdr message) tree))))
+#+END_SRC
+
+encode-symbol is a procedure that returns the list of bits that encode a given symbol according to a given tree. 
+
+You should design encode-symbol so that it signals an error if the symbol is not in the tree at all. Test the procedure by encoding the result obtained in 2.67. 
+
+Check if the node is the first symbol
+if yes, cons it to the list and return the cdr of the message 
+if no, check the left right right trees and cons a 0 and 1 to each of the calls.
+
+Check is the symbol is contained in the subtree 
+If so, is it contained in a leaf? if so return 0 or 1 depending on left or right
+If not, check if its contained in left or right tree. If yes, recurse on the correct side and cons a 0 or a 1. If not contained, throw an error. 
+
+#+BEGIN_SRC scheme
+(define (encode-symbol symbol tree)
+  (let ((contained-in?
+         (lambda (symbol tree)
+           (memq symbol (caddr tree)))))
+    (if (contained-in? symbol tree)
+        (cond ((eq? symbol (symbol-leaf (left-branch tree))) '(0))
+              ((eq? symbol (symbol-leaf (right-branch tree))) '(1))
+              ((contained-in? symbol (right-branch tree))
+               (cons 1 (encode-symbol symbol (right-branch tree))))
+              (else
+               (cons 0 (encode-symbol symbol (left-branch tree)))))
+        (error "Symbol not found on tree"))))
+
+(define test-encoding (encode '(a d a b b c a) sample-tree))
+(equal? test-encoding sample-message)
+#+END_SRC
+
+*** Exercise 2.69 
+
+
