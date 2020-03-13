@@ -32,7 +32,6 @@ Such a sequence of pairs, formed by nested conses, is called a list. We could ha
 #+END_SRC
 
 #+RESULTS:
-: one_through_four
 
 #+BEGIN_SRC scheme
 (car one_through_four)
@@ -132,14 +131,14 @@ Define a procedure last-pair that returns the list that contains only the last e
 #+BEGIN_SRC scheme
 (define (last-pair l1)
   (if (null? (cdr l1))
-      (car l1)
+      (list (car l1))
       (last-pair (cdr l1))))
 
 (last-pair (list 23 72 149 34))
 #+END_SRC
 
 #+RESULTS:
-: 34
+| 34 |
 
 *** Exercise 2.18
 
@@ -148,15 +147,15 @@ Define a procedure reverse that takes a list as an argument and returns a list o
 #+BEGIN_SRC scheme
 (define (reverse l1)
   (if (null? (cdr l1))
-      (car l1)
-      (list (cons (reverse (cdr l1))
-             (car l1)))))
+      l1
+      (append (reverse (cdr l1))
+              (list (car l1)))))
 
 (reverse (list 1 4 9 16 25))
 #+END_SRC
 
 #+RESULTS:
-: ((((((((25 . 16)) . 9)) . 4)) . 1))
+| 25 | 16 | 9 | 4 | 1 |
 
 *** Exercise 2.20 
 
@@ -180,6 +179,8 @@ Use this notation to write a procedure same-parity that takes one or more intege
                                   (cddr b)))
              (cons (car b)
                    (same-parity a (cdr b)))))))
+
+(define (same-parity a . b))
 
 (same-parity 1 2 3 4 5 6 7)
 #+END_SRC
@@ -339,7 +340,7 @@ The procedure for-each is similar to map. It takes as arguments a procedure and 
 #+BEGIN_SRC scheme :results output
 (define (for-each proc items)
   (if (null? items)
-      '#t
+      '()
       (proc (car items)))
   (for-each proc (cdr items)))
 
@@ -348,6 +349,45 @@ The procedure for-each is similar to map. It takes as arguments a procedure and 
             (display x))
           (list 57 321 88))
 #+END_SRC
+
+#+RESULTS:
+#+begin_example
+
+;The object (), passed as the first argument to cdr, is not the correct type.
+;To continue, call RESTART with an option number:
+; (RESTART 30) => Specify an argument to use in its place.
+; (RESTART 29) => Return to read-eval-print level 29.
+; (RESTART 28) => Return to read-eval-print level 28.
+; (RESTART 27) => Return to read-eval-print level 27.
+; (RESTART 26) => Return to read-eval-print level 26.
+; (RESTART 25) => Return to read-eval-print level 25.
+; (RESTART 24) => Return to read-eval-print level 24.
+; (RESTART 23) => Return to read-eval-print level 23.
+; (RESTART 22) => Return to read-eval-print level 22.
+; (RESTART 21) => Return to read-eval-print level 21.
+; (RESTART 20) => Return to read-eval-print level 20.
+; (RESTART 19) => Return to read-eval-print level 19.
+; (RESTART 18) => Return to read-eval-print level 18.
+; (RESTART 17) => Return to read-eval-print level 17.
+; (RESTART 16) => Return to read-eval-print level 16.
+; (RESTART 15) => Return to read-eval-print level 15.
+; (RESTART 14) => Return to read-eval-print level 14.
+; (RESTART 13) => Return to read-eval-print level 13.
+; (RESTART 12) => Return to read-eval-print level 12.
+; (RESTART 11) => Return to read-eval-print level 11.
+; (RESTART 10) => Return to read-eval-print level 10.
+; (RESTART 9) => Return to read-eval-print level 9.
+; (RESTART 8) => Return to read-eval-print level 8.
+; (RESTART 7) => Return to read-eval-print level 7.
+; (RESTART 6) => Return to read-eval-print level 6.
+; (RESTART 5) => Return to read-eval-print level 5.
+; (RESTART 4) => Return to read-eval-print level 4.
+; (RESTART 3) => Return to read-eval-print level 3.
+; (RESTART 2) => Return to read-eval-print level 2.
+; (RESTART 1) => Return to read-eval-print level 1.
+
+30 error> 
+#+end_example
 
 *** Hierarchical Structures 
 
@@ -403,7 +443,7 @@ Then, by taking cars we reach the actual leaves, so we need another base case.
 #+RESULTS:
 : 8
 
-*** Exercise 2.24 
+*** Exercise 2.24
 *** Exercise 2.25 
 
 #+BEGIN_SRC scheme
@@ -517,7 +557,7 @@ Write a procedure fringe which takes as an argument a tree (represented as a lis
 
 A binary mobile consists of two branches, a left branch and a right branch. Each branch is a rod of a certain length, from which hangs either a weight or another binary mobile. 
 
-We can represent a binary mobile using compound data by constructing it from two branches 
+We can represent a binary mobile using compound data by constructing it from two branches
 
 #+BEGIN_SRC scheme
 (define (make-mobile left right)
@@ -757,11 +797,11 @@ rest = (2 3)
 
 #+BEGIN_SRC scheme
 (define (subsets s)
-  (if (null? (cdr s))
-      (car s)
+  (if (null? s)
+      '(())
       (let ((rest (subsets (cdr s))))
         (append rest (map (lambda (x)
-                            (append (car s) x))
+                            (cons (car s) x))
                           rest)))))
 #+END_SRC
 
@@ -771,7 +811,7 @@ rest = (2 3)
 (subsets s)
 #+END_SRC
 
-This doesn't work and needs to be fixed 
+# This doesn't work and needs to be fixed
 
 ** Sequences as Conventional Interfaces 
 
@@ -1219,13 +1259,13 @@ With this representation we can use sequence operations to concisely express the
 (fold-left * 1 (list 3 2 5))
 #+END_SRC
 
-associative and commutative 
+associative and commutative
 
 Supposedly monoid has something to do with this
 
 https://en.wikipedia.org/wiki/Monoid#Monoids_in_computer_science
 
-*** Exercise 2.39 
+*** Exercise 2.39
 
 Complete the following definitions of reverse in terms of fold-right and fold-left
 
@@ -1474,8 +1514,10 @@ filter on pairs in which the sum of ijk = s
 (sum-triple-s? '(1 2 3) 6)
 
 (define (distinct-triple-sum n s)
-  (filter (lambda (x) (sum-triple-s? x s))
-          (filter ordered-triple? (get-trips n))))
+  (filter (lambda (x)
+            (sum-triple-s? x s))
+          (filter ordered-triple?
+                  (get-trips n))))
 
 (distinct-triple-sum 20 16)
 #+END_SRC
