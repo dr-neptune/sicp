@@ -1034,7 +1034,6 @@ Merge
 
 The algorithm does not always specify a unique tree, because there may not be a unique smallest weight node at each step. Also the choice of the order in which the two nodes are merged is arbitrary. 
 
-
 *** Representing Huffman Trees
 
 Leaves of the tree are represented by a list consisting of the symbol leaf, the symbol at the leaf, and the weight. 
@@ -1223,6 +1222,86 @@ If not, check if its contained in left or right tree. If yes, recurse on the cor
 (equal? test-encoding sample-message)
 #+END_SRC
 
-*** Exercise 2.69 
+*** Exercise 2.69
+
+Since we are assuming that we have an ordered set representation, we can use accumulate 
+
+#+BEGIN_SRC scheme
+(define (generate-huffman-tree pairs)
+  (successive-merge (make-leaf-set pairs)))
+
+(define (successive-merge pairs)
+  (accumulate make-code-tree (car pairs) (cdr pairs)))
+
+(define ex-tree-gen (generate-huffman-tree '((A 4) (B 2) (D 1) (C 1))))
+
+(encode '(A C B D) ex-tree-gen)
+(decode '(1 1 0 1 1 1 1 0 0) ex-tree-gen)
+#+END_SRC
+
+
+*** Exercise 2.70
+
+#+BEGIN_SRC scheme
+(define rock-tree (generate-huffman-tree '((A 2)
+                                           (NA 16)
+                                           (BOOM 1)
+                                           (SHA 3)
+                                           (GET 2)
+                                           (YIP 9)
+                                           (JOB 2)
+                                           (WAH 1))))
+(rock-tree)
+(encode '(get a job sha na na na na na na na na get a job sha na na na na na na na na wah yip yip yip yip yip yip yip yip yip sha boom) rock-tree)
+#+END_SRC
+
+#+RESULTS:
+| 1 | 1 | 0 | 1 | 1 | 1 | 0 | 1 | 0 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 0 | 1 | 1 | 1 | 0 | 1 | 0 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | 1 | 0 | 0 |
+
+208 bits are needed to encode it. 
+
+If we used a fixed length code, we would need to have 3 bits per word, since there are 8 total words. So we would have 3 * num words = 3 * 36 = 108 bits 
+
+*** Exercise 2.71 
+
+'((a 1)(b 2)(c 4)(d 8)(e 16))
+
+                (a b c d e) 31
+            (a b c d) 15    (e) 16
+        (a b c) 7    (d) 8
+    (a b) 3    (c) 4
+(a) 1    (b) 2
+
+
+In such a tree, how many bits are required to encode the most frequent symbol? The least?
+
+Since we are encoding this tree in binary, we would need 1,2,3,4,...,2^n bits for our symbols. 
+
+*** Exercise 2.72 
+
+#+BEGIN_SRC scheme
+(define (encode-symbol symbol tree)
+  (let ((contained-in?
+         (lambda (symbol tree)
+           (memq symbol (caddr tree)))))
+    (if (contained-in? symbol tree)
+        (cond ((eq? symbol (symbol-leaf (left-branch tree))) '(0))
+              ((eq? symbol (symbol-leaf (right-branch tree))) '(1))
+              ((contained-in? symbol (right-branch tree))
+               (cons 1 (encode-symbol symbol (right-branch tree))))
+              (else
+               (cons 0 (encode-symbol symbol (left-branch tree)))))
+        (error "Symbol not found on tree"))))
+#+END_SRC
+
+What is the order of growth in the number of steps to encode a symbol?
+
+We need to check if the symbol is at the particular node. Each occurrence of this is O(m) since we need to check a list of m elements. Then we need to logarithmically move down the tree. Suppose we have a list that is n elements deep. Then we are looking at 
+
+O(m log n)
+
+If the relative frequencies are as described in 2.71, we end up with a long list scenario. In this case, we are checking the symbol list at each level, for O(m) steps. Then we are not actually logarithmically splitting the tree, so we will have the entire n nodes of the tree. Thus we get 
+
+O(mn)
 
 
