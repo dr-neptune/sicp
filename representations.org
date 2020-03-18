@@ -406,3 +406,102 @@ We can also extract from the table the constructors to be used by the programs e
   ((get 'make-from-mag-ang 'polar) r a))
 #+END_SRC
 
+#+RESULTS:
+: make-from-mag-ang
+
+*** Exercise 2.73 
+
+#+BEGIN_SRC scheme
+(define (deriv exp var)
+  (cond ((number? exp) 0)
+        ((variable? exp)
+         (if (same-variable? exp var) 1 0))
+        ((sum? exp)
+         (make-sum (deriv (addend exp) var)
+                   (deriv (augend exp) var)))
+        ((product? exp)
+         (make-sum (make-product (multiplier exp)
+                                 (deriv (multiplicand exp) var))
+                   (make-product (deriv (multiplier exp) var)
+                                 (multiplicand exp))))
+        (else (error "Unknown expression type: DERIV" exp))))
+#+END_SRC
+
+We can regard this program as performing a dispatch on the type of expression to be differentiated. In this case, the type tag is the algebraic operator and the operation being performed is deriv. 
+
+We can transform this into a data-directed style by rewriting the basic derivative procedure as 
+
+#+BEGIN_SRC scheme
+(define (deriv exp var)
+  (cond ((number? exp) 0)
+        ((variable? exp)
+         (if (same-variable? exp var) 1 0))
+        (else ((get 'deriv (operator exp))
+               (operands exp) var))))
+
+(define (operator exp) (car exp))
+(define (operands exp) (cdr exp))
+#+END_SRC
+
+a. Explain what was done above. Why can't we assimilate the predicates number? and variable? into the data-directed dispatch? 
+
+We essentially outsourced our procedure checking (for sum and product) to an external table. We passed the operator of the expression as the tag and the operands as the values to be operated on. 
+
+We can't pass number? and variable? to the data-directed dispatch because they are not tagged values, so the data-dispatch wouldn't know what to do with them. 
+
+b. Write the procedures for derivatives of sums and products, and the auxiliary code required to install them in the table used by the program above. 
+
+install sum 
+
+#+BEGIN_SRC scheme
+(define (install-sum)
+  ; internal procedures
+  (define (make-sum exp1 exp2)
+    (cons exp1 exp2))
+  (define (addend s) (cadr s))
+  (define (augend s) (caddr s))
+  (define (deriv-sum s)
+    (make-sum (deriv (addend s))
+              (deriv (augend s))))
+  ; interface to the rest of the system 
+  (define (tag x) (attach-tag '+ x))
+  (put 'deriv '(+) deriv-sum)
+  (put 'make-sum '+
+       (lambda (x y) (tag (make-sum x y))))
+  'done)
+#+END_SRC
+
+install product 
+
+#+BEGIN_SRC scheme
+(define (install-product)
+  ; internal procedures 
+  (define (make-product exp1 exp2)
+    (cons exp1 exp2))
+  (define (multiplier p) (cadr p))
+  (define (multiplicand p) (caddr p))
+  (define (deriv-product exp var)
+    (make-sum
+     (make-product (multiplier exp)
+                   (deriv (multiplicand exp) var))
+     (make-product (deriv (multiplier exp) var)
+                   (multiplicand exp))))
+  ; interface to the rest of the system
+  (define (tag x) (attach-tag '* x))
+  (put 'deriv '(*) deriv-product)
+  (put 'make-product '*
+       (lambda (x y) (tag (make-product x y))))
+  'done)
+#+END_SRC
+
+install exponentiation 
+
+#+BEGIN_SRC scheme
+
+#+END_SRC
+
+install all of them together 
+
+#+BEGIN_SRC scheme
+
+#+END_SRC
