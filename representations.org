@@ -1,0 +1,408 @@
+* Multiple Representations for Abstract Data 
+:PROPERTIES:
+:header-args: :session scheme :results value
+:END:
+
+Data abstraction is a methodology for structuring systems in such a way that much of a program can be specified independent of the choices involved in implementing the data objects that the program manipulates. 
+
+The key idea is to erect an abstraction barrier that isolates the way that the functionality is used from its underlying implementation in terms of list structure.
+
+ Unfortunately, it may not make sense to speak of the underlying representation of a data object. 
+
+- There may be more than one useful representation of the underlying object 
+- In the timeline of a project, it may not be feasible for everyone to agree on an underlying data representation
+- There must be conventions that permit programmers to add pieces additively without redesigning or reimplementing modules 
+
+In this section we learn to cope with data that may be represented in different ways by different parts of a program. This requires generic procedures -- procedures that can operate on data that may be represented in more than one way.
+
+Our main technique for building generic procedures will be to work in terms of data objects that have type tags, which are data objects that include explicit information about how they are to be processed. We also discuss data directed programming, a powerful and convenient implementation strategy for additively assembling systems with generic operations. 
+
+  
+** Representations for Complex Numbers 
+
+#+DOWNLOADED: /tmp/screenshot.png @ 2020-03-15 11:01:51
+[[file:Multiple Representations for Abstract Data/screenshot_2020-03-15_11-01-51.png]]
+
+We begin by discussing two plausible representations for complex numbers as ordered pairs: rectangular form (real and imaginary parts) and polar form (magnitude and angle).
+
+#+BEGIN_SRC scheme
+(define (make-from-real-imag real-part imag-part))
+
+(define (make-from-mag-ang magnitude angle))
+
+(define (add-complex z1 z2)
+  (make-from-real-imag (+ (real-part z1) (real-part z2))
+                       (+ (imag-part z1) (imag-part z2))))
+
+(define (sub-complex z1 z2)
+  (make-from-real-imag (- (real-part z1) (real-part z2))
+                       (- (imag-part z1) (imag-part z2))))
+
+(define (mul-complex z1 z2)
+  (make-from-mag-ang (* (magnitude z1) (magnitude z2))
+                     (+ (angle z1) (angle z2))))
+
+(define (div-complex z1 z2)
+  (make-from-mag-ang (/ (magnitude z1) (magnitude z2))
+                     (- (angle z1) (angle z2))))
+#+END_SRC
+
+#+RESULTS:
+
+To complete the complex-number package, we must choose a representation and we must implement the constructors and selectors in terms of primitive numbers and primitive list structure. 
+
+*Ben's Representation - Rectangular Form*
+
+
+#+DOWNLOADED: /tmp/screenshot.png @ 2020-03-15 11:15:33
+[[file:Multiple Representations for Abstract Data/screenshot_2020-03-15_11-15-33.png]]
+
+#+BEGIN_SRC scheme
+(define (real-part z)
+  (car z))
+
+(define (imag-part z)
+  (cdr z))
+
+(define (magnitude z)
+  (sqrt (+ (square (real-part z))
+           (square (imag-part z)))))
+
+(define (angle z)
+  (atan (imag-part z)
+        (real-part z)))
+
+(define (make-from-real-imag x y)
+  (cons x y))
+
+(define (make-from-mag-ang r a)
+  (cons (* r (cos a))
+        (* r (sin a))))
+#+END_SRC
+
+#+RESULTS:
+: make-from-mag-ang
+
+*Alyssa's Implemetation - Polar Form*
+
+#+BEGIN_SRC scheme
+(define (real-part z)
+  (* (magnitude z)
+     (cos (angle z))))
+
+(define (imag-part z)
+  (* (magnitude z)
+     (sin (angle z))))
+
+(define (magnitude z)
+  (car z))
+
+(define (angle z)
+  (cdr z))
+
+(define (make-from-real-imag x y)
+  (cons (sqrt (+ (square x)
+                 (square y)))
+        (atan y x)))
+
+(define (make-from-mag-ang r a)
+  (cons r a))
+#+END_SRC
+
+#+RESULTS:
+: make-from-mag-ang
+
+The discipline of data abstraction ensures that the same implementation of add-complex, sub-complex, mul-complex, and div-complex will work with both implemetations. 
+
+** Tagged Data
+
+One way to view data abstraction is as an application of the principle of least commitment. Given Ben and Alyssa's implementations, the abstraction barrier formed by the selectors and constructors permits us to defer to the last possible moment the choice of a concrete representation for our data objects and thus retain the maximum flexibility in our system design. 
+
+We could even choose to use both Ben and Alyssa's representations. The straightforward way to implement this distinction is to include a type tag as part of our complex number. 
+
+#+BEGIN_SRC scheme
+(define (attach-tag type-tag contents)
+  (cons type-tag contents))
+
+(define (type-tag datum)
+  (if (pair? datum)
+      (car datum)
+      (error "Bad tagged datum: TYPE-TAG" datum)))
+
+(define (contents datum)
+  (if (pair? datum)
+      (cdr datum)
+      (error "Bad tagged datum: CONTENTS" datum)))
+#+END_SRC
+
+#+RESULTS:
+: contents
+
+Then we can define the following predicates: 
+
+#+BEGIN_SRC scheme
+(define (rectangular? z)
+  (eq? (type-tag z) 'rectangular))
+
+(define (polar? z)
+  (eq? (type-tag z) 'polar))
+#+END_SRC
+
+#+RESULTS:
+: polar?
+
+Now both implementations can exist, but first we need a namespace for each
+
+*Rectangular*
+
+#+BEGIN_SRC scheme
+(define (real-part-rectangular z)
+  (car z))
+
+(define (imag-part-rectangular z)
+  (cdr z))
+
+(define (magnitude-rectangular z)
+  (sqrt (+ (square (real-part-rectangular z))
+           (square (imag-part-rectangular z)))))
+
+(define (angle-rectangular z)
+  (atan (imag-part-rectangular z)
+        (real-part-rectangular z)))
+
+(define (make-from-real-imag-rectangular x y)
+  (attach-tag 'rectangular (cons x y)))
+
+(define (make-from-mag-ang-rectangular r a)
+  (attach-tag 'rectangular
+              (cons (* r (cos a))
+                    (* r (sin a)))))
+#+END_SRC
+
+#+RESULTS:
+: make-from-mag-ang-rectangular
+
+*Polar*
+
+#+BEGIN_SRC scheme
+(define (real-part-polar z)
+  (* (magnitude-polar z)
+     (cos (angle-polar z))))
+
+(define (imag-part-polar z)
+  (* (magnitude-polar z)
+     (sin (angle-polar z))))
+
+(define (magnitude-polar z)
+  (car z))
+
+(define (angle-polar z)
+  (cdr z))
+
+(define (make-from-real-imag-polar x y)
+  (attach-tag 'polar
+              (cons (sqrt (+ (square x)
+                             (square y)))
+                    (atan y x))))
+
+(define (make-from-mag-ang-polar r a)
+  (attach-tag 'polar (cons r a)))
+#+END_SRC
+
+#+RESULTS:
+: make-from-mag-ang-polar
+
+Each generic selector is implemented as a procedure that checks the tag of its argument and calls the appropriate procedure for handling data of that type. 
+
+#+BEGIN_SRC scheme
+(define (real-part z)
+  (cond ((rectangular? z)
+         (real-part-rectangular (contents z)))
+        ((polar? z)
+         (real-part-polar (contents z)))
+        (else (error "Unknown type: REAL-PART" z))))
+
+(define (imag-part z)
+  (cond ((rectangular? z)
+         (imag-part-rectangular (contents z)))
+        ((polar? z)
+         (imag-part-polar (contents z)))
+        (else (error "Unknown type: IMAG-PART" z))))
+
+(define (magnitude z)
+  (cond ((rectangular? z)
+         (magnitude-rectangular (contents z)))
+        ((polar? z)
+         (magnitude-polar (contents z)))
+        (else (error "Unknown Type: MAGNITUDE" z))))
+
+(define (angle z)
+  (cond ((rectangular? z)
+         (angle-rectangular (contents z)))
+        ((polar? z)
+         (angle-polar (contents z)))
+        (else (error "Unknown type: ANGLE" z))))
+
+(define (add-complex z1 z2)
+  (make-from-real-imag (+ (real-part z1)
+                          (real-part z2))
+                       (+ (imag-part z1)
+                          (imag-part z2))))
+#+END_SRC
+
+#+RESULTS:
+: add-complex
+
+
+#+DOWNLOADED: /tmp/screenshot.png @ 2020-03-15 17:40:19
+[[file:Multiple Representations for Abstract Data/screenshot_2020-03-15_17-40-19.png]]
+
+Now we must choose whether to construct complex numbers using Ben's representation or Alyssa's representation. A reasonable choice is to construct rectangular numbers whenever we have real and imaginary parts and to construct polar numbers whenever we have magnitudes and angles.
+
+#+BEGIN_SRC scheme
+(define (make-from-real-imag x y)
+  (make-from-real-imag-rectangular x y))
+
+(define (make-from-mag-ang r a)
+  (make-from-mag-ang-polar r a))
+#+END_SRC
+
+#+RESULTS:
+: make-from-mag-ang
+
+This discipline of stripping off and attaching tags as data objects are passed from level to level can be an important organizational strategy. 
+
+** Data Directed Programming and Additivity 
+
+The general strategy of checking the type of a datum and calling an appropriate procedure is called dispatching on type. 
+
+There are two significant weaknesses with our method: 
+
+- we need to know of each representation
+
+If we were to add a new representation, we would also need to identify it with a type, and then add a clause to each of the generic interface procedures to check for the new type and apply the appropriate selector for that representation. 
+
+- Even though the individual representations can be designed separately, we must guarantee that no two procedures in the entire system have the same name. 
+
+The issues underlying both of these weaknesses is that the technique for implementing generic interfaces is not additive. 
+
+What we need is a means for modularizing the system design even further. This is provided by the programming technique known as data directed programming. 
+
+To understand how data directed programming works, begin with the observation that whenever we deal with a set of generic operations that are common to a set of different types we are essentially dealing with a two dimensional table that contains the possible operations on one axis and the possible types on the other axis.
+
+#+DOWNLOADED: /tmp/screenshot.png @ 2020-03-15 18:10:30
+[[file:Multiple Representations for Abstract Data/screenshot_2020-03-15_18-10-30.png]]
+
+Data directed programming is the technique of designing programs to work with such a table directly. 
+
+This means that if we wanted to add another representation to the program, we only need to add the values to our table. To implement this, assume that we have the following two procedures for manipulating the operation-and-type table: 
+
+
+#+DOWNLOADED: /tmp/screenshot.png @ 2020-03-15 18:13:35
+[[file:Multiple Representations for Abstract Data/screenshot_2020-03-15_18-13-35.png]]
+
+For now we don't have it, but we will learn more about these types of things in 3.3.3. 
+
+Here is how we could use data-directed-programming in the complex number system. 
+
+#+BEGIN_SRC scheme
+(define (install-rectangular-package)
+  ; internal procedures 
+  (define (real-part z) (car z))
+  (define (imag-part z) (cdr z))
+  (define (make-from-real-imag x y) (cons x y))
+  (define (magnitude z)
+    (sqrt (+ (square (real-part z))
+             (square (imag-part z)))))
+  (define (angle z)
+    (atan (imag-part z) (real-part z)))
+  (define (make-from-mag-ang r a)
+    (cons (* r (cos a))
+          (* r (sin a))))
+
+  ; interface to the rest of the system
+  (define (tag x) (attach-tag 'rectangular x))
+  (put 'real-part '(rectangular) real-part)
+  (put 'imag-part '(rectangular) imag-part)
+  (put 'magnitude '(rectangular) magnitude)
+  (put 'angle '(rectangular) angle)
+  (put 'make-from-real-imag 'rectangular
+       (lambda (x y) (tag (make-from-real-imag x y))))
+  (put 'make-from-mag-ang 'rectangular
+       (lambda (r a) (tag (make-from-mag-ang r a))))
+  'done)
+#+END_SRC
+
+#+RESULTS:
+: install-rectangular-package
+
+Since these procedures are internal to the installation procedure, there is no need to worry about naming conflicts with other procedures outside of the rectangular package. 
+
+Alyssa's polar package is analogous 
+
+#+BEGIN_SRC scheme
+(define (install-polar-package)
+  ; internal procedures
+  (define (magnitude z) (car z))
+  (define (angle z) (cdr z))
+  (define (make-from-mag-ang r a) (cons r a))
+  (define (real-part z) (* (magnitude z) (cos (angle z))))
+  (define (imag-part z) (* (magnitude z) (sin (angle z))))
+  (define (make-from-real-imag x y)
+    (cons (sqrt (+ (square x) (square y)))
+          (atan y x)))
+  ; interface to the rest of the system 
+  (define (tag x) (attach-tag 'polar x))
+  (put 'real-part '(polar) real-part)
+  (put 'imag-part '(polar) imag-part)
+  (put 'magnitude '(polar) magnitude)
+  (put 'angle '(polar) angle)
+  (put 'make-from-real-imag 'polar
+       (lambda (x y) (tag (make-from-real-imag x y))))
+  (put 'make-from-mag-ang 'polar
+       (lambda (r a) (tag (make-from-mag-ang r a))))
+  'done)
+#+END_SRC
+
+Even though Ben and Alyssa both still use their original procedures defined with the same names as each others, these definitions are now internal to different procedures so there is no name conflict. 
+
+The complex arithmetic selectors access the table by means of a general operation procedure called apply-generic which applies a generic operation to some arguments. apply-generic looks in the table under the name of the operation and the types of the arguments and applies the resulting procedure if one is present. 
+
+#+BEGIN_SRC scheme
+(define (apply-generic op . args)
+  (let ((type-tags (map type-tag args)))
+    (let ((proc (get op type-tags)))
+      (if proc
+          (apply proc (map contents args))
+          (error
+           "No method for these types: APPLY-GENERIC"
+           (list op type-tags))))))
+#+END_SRC
+
+#+RESULTS:
+: apply-generic
+
+Using apply-generic, we can define our generic selectors as follows: 
+
+#+BEGIN_SRC scheme
+(define (real-part z) (apply-generic 'real-part z))
+(define (imag-part z) (apply-generic 'imag-part z))
+(define (magnitude z) (apply-generic 'magnitude z))
+(define (angle z) (apply-generic 'angle z))
+#+END_SRC
+
+#+RESULTS:
+: angle
+
+Observe that these do not change at all if a new representation is added to the system. 
+
+We can also extract from the table the constructors to be used by the programs external to the packages in making complex numbers from real and imaginary parts and from magnitudes and angles. 
+
+#+BEGIN_SRC scheme
+(define (make-from-real-imag x y)
+  ((get 'make-from-real-imag 'rectangular) x y))
+
+(define (make-from-mag-ang r a)
+  ((get 'make-from-mag-ang 'polar) r a))
+#+END_SRC
+

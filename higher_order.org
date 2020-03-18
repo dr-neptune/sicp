@@ -12,7 +12,7 @@ Procedures that manipulate procedures are called higher-order procedures.
 
  Compute the sum of the integers from a through b
 
- #+BEGIN_SRC scheme
+#+BEGIN_SRC scheme
 (define (sum-integers a b)
   (if (> a b)
       0
@@ -20,9 +20,6 @@ Procedures that manipulate procedures are called higher-order procedures.
 
 (sum-integers 5 50)
  #+END_SRC
-
- #+RESULTS:
- 1265
 
  Compute the sum of the cubes of the integers in the given range
 
