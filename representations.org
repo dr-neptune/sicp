@@ -449,7 +449,7 @@ We essentially outsourced our procedure checking (for sum and product) to an ext
 
 We can't pass number? and variable? to the data-directed dispatch because they are not tagged values, so the data-dispatch wouldn't know what to do with them. 
 
-b. Write the procedures for derivatives of sums and products, and the auxiliary code required to install them in the table used by the program above. 
+b-c. Write the procedures for derivatives of sums and products, and the auxiliary code required to install them in the table used by the program above. 
 
 install sum 
 
@@ -497,11 +497,160 @@ install product
 install exponentiation 
 
 #+BEGIN_SRC scheme
-
+(define (install-exp)
+  ; internal procedures 
+  (define (make-exponent base exp)
+    (cons base exp))
+  (define (base exp) (cadr exp))
+  (define (exponent exp) (caddr exp))
+  (define (deriv-exponent exp var)
+    (make-product
+     (exponent exp)
+     (make-product
+      (make-exponentiation
+       (base exp)
+       (- (exponent exp) 1))
+      (deriv (base exp) var))))
+  ;interface with the rest of the system 
+  (define (tag x) (attach-tag '** x))
+  (put 'deriv '(**) deriv-exponent)
+  (put 'make-exponent '**
+       (lambda (x y) (tag (make-exponent x y))))
+  'done)
 #+END_SRC
 
 install all of them together 
 
 #+BEGIN_SRC scheme
-
+(define (install-deriv-package)
+  (install-sum)
+  (install-product)
+  (install-exp))
 #+END_SRC
+
+d. It mentions indexing the procedures in the opposite way, which means we could simply swap the arguments of the get procedure to account for the difference.
+
+*** Exercise 2.74 
+
+a. Implement for headquarters a get-record procedure that retrieves a specified employee's record from a specified personnel file. The procedure should be applicable to any divisions file. Explain how the individual divisions' files should be structured. In particular, what type information must be supplied? 
+
+-------------------------------------------------------------
+
+Each division should have a record which has each employee's name, their division, and any other information they wish to add. Then, let's assume that all of these procedures are tagged properly in a data-table. 
+
+#+BEGIN_SRC scheme
+(define (get-record emp division)
+  ((get 'get-personal-record) emp division))
+#+END_SRC
+
+b. Implement a get-salary procedure that returns the salary information for a given employee's record from any division's personnel file.
+
+#+BEGIN_SRC scheme
+(define (get-salary emp division)
+  ((get 'get-salary-emp) (get-record emp division)))
+#+END_SRC
+
+c. Implement a find-employee-record procedure 
+
+#+BEGIN_SRC scheme
+(define (find-employee-record emp division-files)
+  (if (null? division-files)
+      '()
+      (append (get-record emp (car division-files))
+              (find-employee-record emp (cdr division-files)))))
+#+END_SRC
+
+d. When Insatiable takes over a new company, what changes must be made in order to incoporate the new personnel information into the central system? 
+
+They would need to make a package which places all of the new procedures and data into the system 
+
+** Message Passing 
+
+The key idea of data-directed programming is to handle generic operations in programs by dealing explicitly with operation and type tables. The style of programming used organized the required dispatching on type by having each operation take care of its own dispatching. In effect, this decomposes the operation and type table into rows, with each generic operation procedure representing a row of the table. 
+
+Alternatively, we could decompose the table into columns and, instead of using "intelligent data objects" that dispatch on data types, to work with "intelligent data objects" that dispatch on operation names.
+
+We can do this by arranging things so that a data object, such as a rectangular number is represented as a procedure that takes as input the required operation name and performs the operation indicated. 
+
+#+BEGIN_SRC scheme
+(define (make-from-real-imag x y)
+  (define (dispatch op)
+    (cond ((eq? op 'real-part) x)
+          ((eq? op 'imag-part) y)
+          ((eq? op 'magnitude)
+           (sqrt (+ (square x)
+                    (square y))))
+          ((eq? op 'angle)
+           (atan y x))
+          (else (error "Unknown op: MAKE-FROM-REAL-IMAG" op))))
+  dispatch)
+#+END_SRC
+
+The corresponding apply-generic procedure, which applies a generic operation to an argument, now simply feeds the operation's name to the data object and lets the object do the work.
+
+#+BEGIN_SRC scheme
+(define (apply-generic op arg)
+  (arg op))
+#+END_SRC
+
+This style of programming is known as message passing. The name comes from the image that a data object is an entity that receives the requested operation name as a "message". Here we see that message passing is not a mathematical trick, but a useful technique for organizing systems with generic operations. 
+
+The rest of chapter 2 focuses on data-directed programming as opposed to message passing to discuss generic arithmetic operations. In chapter 3 we return to message passing.
+
+*** Exercise 2.75 
+
+Implement the constructor make-from-mag-ang in message passing style. 
+
+#+BEGIN_SRC scheme
+(define (make-from-real-imag x y)
+  (define (dispatch op)
+    (cond ((eq? op 'real-part) x)
+          ((eq? op 'imag-part) y)
+          ((eq? op 'magnitude)
+           (sqrt (+ (square x)
+                    (square y))))
+          ((eq? op 'angle)
+           (atan y x))
+          (else (error "Unknown op: MAKE-FROM-REAL-IMAG" op))))
+  dispatch)
+
+(define (make-from-mag-ang mag ang)
+  (define (dispatch op)
+    (cond ((eq? op 'real-part)
+           (* (magnitude mag)
+              (cos (angle ang))))
+          ((eq? op 'imag-part)
+           (* (magnitude mag)
+              (sin (angle ang))))
+          ((eq? op 'magntude) mag)
+          ((eq? op 'angle) ang)
+          (else (error "Unknown op: MAKE-FROM-MAG-ANG"))))
+  dispatch)
+#+END_SRC
+
+*** Exercise 2.76
+
+http://wiki.c2.com/?ExpressionProblem
+
+As a large system with generic operations evolves, new types of data objects or new operations may be needed. For each of the three strategies, describe the changes that must be made to the system in order to add new types or new operations. 
+
+**** generic operations With explicit dispatch
+     - We would need to change the functions that operate on our data structures to handle more data types, essentially more conds. 
+
+This is the functional programming approach in the expression problem page. 
+
+**** data-directed style 
+     - We would need to load a new package to our data-directed table and add explicit tags for the new type of data structure. Then we have the benefit of new types and new functions for that type being referenced.
+
+**** message-passing style 
+     - This is like generic operations except that it centralizes the functions that operate on each type. Thus its more like a data-directed table for procedures only. For adding new procedures, we would only need to edit the functions that act on the new data structure. Unfortunately, every time we add a new type, we need to explicitly state all the operations that perform on it, and if we want to extend a procedure across many types we need to update all the types. 
+
+This is the object oriented approach to the expression problem. 
+
+Which organization would be most appropriate for a system in which new types must often be added? 
+
+If we didn't have a data-directed setup, then generic operations with explicit dispatch would be the best because it would allow us to add as many types as we want and we only need to update a few functions. This is the case in which we have many types and a few operations. 
+
+Which would be most appropriate for a system in which new operations must often be added?
+
+Once again, without a data-directed setup, we would choose a message-passing style because it allows us to add a new operation that works on all of our types easily. This is the case in which we have a few types and many operations. 
