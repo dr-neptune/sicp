@@ -1,0 +1,178 @@
+* Systems with Generic Operations 
+:PROPERTIES:
+:header-args: :session scheme :results value
+:END:
+
+In the previous section, we saw how to design systems in which data objects can be represented in more than one way. The key idea is to link the code that specifies the data operations to the several representations by means of generic interface procedures. 
+
+Now we will see how to use this same idea not only to define operations that are generic over different representations but also to define operations that are generic over different kinds of arguments. 
+
+
+
+#+DOWNLOADED: /tmp/screenshot.png @ 2020-03-20 21:26:07
+[[file:Systems with Generic Operations/screenshot_2020-03-20_21-26-07.png]]
+
+** General Arithmetic Operations 
+
+We would like, for instance, to have a generic addition procedure add that acts like ordinary addition on ordinary numbers, like add-rat on rational numbers, and like add-complex on complex numbers. 
+
+We can implement this in a manner akin to how we implemented the generic selectors for complex numbers in the last section. 
+
+#+BEGIN_SRC scheme
+(define (add x y)
+  (apply-generic 'add x y))
+
+(define (sub x y)
+  (apply-generic 'sub x y))
+
+(define (mul x y)
+  (apply-generic 'mul x y))
+
+(define (div x y)
+  (apply-generic 'div x y))
+#+END_SRC
+
+#+RESULTS:
+: div
+
+We begin by installing a package for handling ordinary numbers, the primitives of our language. We will tag these with the symbol scheme-number. 
+
+Since these operations each take two arguments, they are installed in the table keyed by the list (scheme-number scheme-number). 
+
+#+BEGIN_SRC scheme
+(define (install-scheme-number-package)
+  (define (tag x) (attach-tag 'scheme-number x))
+  (put 'add '(scheme-number scheme-number)
+       (lambda (x y) (tag (+ x y))))
+  (put 'sub '(scheme-number scheme-number)
+       (lambda (x y) (tag (- x y))))
+  (put 'mul '(scheme-number scheme-number)
+       (lambda (x y) (tag (* x y))))
+  (put 'div '(scheme-number scheme-number)
+       (lambda (x y) (tag (/ x y))))
+  (put 'make 'scheme-number
+       (lambda (x) (tag x)))
+  'done)
+#+END_SRC
+
+Users of the scheme-number package will create tagged ordinary numbers by means of the procedure: 
+
+#+BEGIN_SRC scheme
+(define (make-scheme-number n)
+  ((get 'make 'scheme-number) n))
+#+END_SRC
+
+Now that our initial framework is in place, we can readily include new numbers. As a benefit of additivity, we can use without modification code from the rational number package in 2.1.1
+
+#+BEGIN_SRC scheme
+(define (install-rational-package)
+  ; internal procedures 
+  (define (numer x) (car x))
+  (define (denom x) (cdr x))
+  (define (make-rat n d)
+    (let ((g (gcd n d)))
+      (cons (/ n g)
+            (/ d g))))
+  (define (add-rat x y)
+    (make-rat (+ (* (numer x)
+                    (denom y)))
+              (* (denom x)
+                 (denom y))))
+  (define (sub-rat x y)
+    (make-rat (- (* (numer x)
+                    (denom y))
+                 (* (numer y)
+                    (denom x)))
+              (* (denom x)
+                 (denom y))))
+  (define (mul-rat x y)
+    (make-rat (* (numer x)
+                 (numer y))
+              (* (denom x)
+                 (denom y))))
+  (define (div-rat x y)
+    (make-rat (* (numer x)
+                 (denom y))
+              (* (denom x)
+                 (numer y))))
+  ; interface with the rest of the system
+  (define (tag x) (attach-tag 'rational x))
+  (put 'add '(rational rational)
+       (lambda (x y) (tag (add-rat x y))))
+  (put 'sub '(rational rational)
+       (lambda (x y) (tag (sub-rat x y))))
+  (put 'mul '(rational rational)
+       (lambda (x y) (tag (mul-rat x y))))
+  (put 'div '(rational rational)
+       (lambda (x y) (tag (div-rat x y))))
+  (put 'make 'rational
+       (lambda (n d) (tag (make-rat n d))))
+  'done)
+
+(define (make-rational n d)
+  ((get 'make 'rational) n d))
+#+END_SRC
+
+We can install a similar package to handle complex numbers using the tag complex. 
+
+In creating the package we extract from the table the operations make-from-real-imag and make-from-mag-ang defined by the polar and rectangular packages. 
+
+#+BEGIN_SRC scheme
+(define (install-complex-package)
+  ; imported procedures from the rectangular and polar packages
+  (define (make-from-real-imag x y)
+    ((get 'make-from-real-imag 'rectangular) x y))
+  (define (make-from-mag-ang r a)
+    ((get 'make-from-mag-ang 'polar) r a))
+  ; internal procedures 
+  (define (add-complex z1 z2)
+    (make-from-real-imag (+ (real-part z1)
+                            (real-part z2))
+                         (+ (imag-part z1)
+                            (imag-part z2))))
+  (define (sub-complex z1 z2)
+    (make-from-real-imag (- (real-part z1)
+                            (real-part z2))
+                         (- (imag-part z1)
+                            (imag-part z2))))
+  (define (mul-complex z1 z2)
+    (make-from-mag-ang (* (magnitude z1)
+                          (magnitude z2))
+                       (+ (angle z1)
+                          (angle z2))))
+  (define (div-complex z1 z2)
+    (make-from-mag-ang (/ (magnitude z1)
+                          (magnitude z2))
+                       (- (angle z1)
+                          (angle z2))))
+  ; interface to the rest of the system 
+  (define (tag z) (attach-tag 'complex z))
+  (put 'add '(complex complex)
+       (lambda (z1 z2) (tag (add-complex z1 z2))))
+  (put 'sub '(complex complex)
+       (lambda (z1 z2) (tag (sub-complex z1 z2))))
+  (put 'mul '(complex complex)
+       (lambda (z1 z2) (tag (mul-complex z1 z2))))
+  (put 'div '(complex complex)
+       (lambda (z1 z2) (tag (div-complex z1 z2))))
+  (put 'make-from-real-imag 'complex
+       (lambda (r i) (tag (make-from-real-imag r i))))
+  (put 'make-from-mag-ang 'complex
+       (lambda (r a) (tag (make-from-mag-ang r a))))
+  'done)
+
+(define (make-complex-from-real-imag x y)
+  ((get 'make-from-real-imag 'complex) x y))
+
+(define (make-complex-from-mag-ang r a)
+  ((get 'make-from-mag-ang 'complex) r a))
+#+END_SRC
+
+*** Exercise 2.77 
+
+Louis Reasoner tries to evaluate the expression (magnitude z) where z is the object 
+
+
+#+DOWNLOADED: /tmp/screenshot.png @ 2020-03-20 22:17:23
+[[file:Systems with Generic Operations/screenshot_2020-03-20_22-17-23.png]]
+
