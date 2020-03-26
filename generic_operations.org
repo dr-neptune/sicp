@@ -561,3 +561,165 @@ Show how to generalize apply-generic to handle coercion in the general case of m
 
 Give an example of a situation where this strategy is not sufficiently general. 
 
+
+skipping some exercises due to the frustration of code that is not checkable. 
+
+** Example: Symbolic Algebra 
+
+The manipulation of symbolic algebraic expressions is a complex process that illustrates many of the hardest problems that occur in the design of large-scale systems. We can, in essence, view an algebraic expression as a tree of operators applied to operands.  
+
+Instead of implementing a full system, we will instead focus on a simple, but important, part of algebraic manipulation: the arithmetic of polynomials. 
+
+*** Arithmetic on Polynomials 
+
+We will define a polynomial to be a sum of terms, each of which is either a coefficient, a power of the indeterminate, or a product of a coefficient and a power of the indeterminate. A coefficient is defined as an algebraic expression that is not dependent upon the indeterminate of the polynomial. 
+
+We will approach the design of our system by following the familiar discipline of data abstraction. 
+
+#+BEGIN_SRC scheme
+(define (same-variable? v1 v2)
+  (and (variable? v1)
+       (variable? v2)
+       (eq? v1 v2)))
+
+(define (add-poly p1 p2)
+  (if (same-variable? (variable p1)
+                      (variable p2))
+      (make-poly (variable p1)
+                 (add-terms (term-list p1)
+                            (term-list p2)))
+      (error "Polys not in same var: ADD-POLY" (list p1 p2))))
+
+(define (mult-poly p1 p2)
+  (if (same-variable? (variable p1) (variable p2))
+      (make-poly (variable p1)
+                 (mul-terms (term-list p1)
+                            (term-list p2)))
+      (error "Polys not in the same var: MUL-POLY" (list p1 p2))))
+#+END_SRC
+
+To incorporate polynomials into our generic type arithmetic system, we need to supply them with type tags. 
+
+#+BEGIN_SRC scheme
+(define (install-polynomial-package)
+  ; internal procedures 
+  ; representation of poly
+  (define (make-poly variable term-list)
+    (cons variable term-list))
+  (define (variable p) (car p))
+  (define (term-list p) (cdr p))
+  (define (same-variable? v1 v2)
+    (and (variable? v1)
+         (variable? v2)
+         (eq? v1 v2)))
+  (define (variable? x) (symbol? x))
+  ; representation of terms and term lists 
+  <procedures adjoin-term ... coeff from text below>
+  (define (add-poly p1 p2) ...)
+  <procedures used by add-poly>
+  (define (mul-poly p1 p2) ...)
+  <procedures used by mul-poly>
+  ; interface to the rest of the system
+  (define (tag p) (attach-tag 'polynomial p))
+  (put 'add '(polynomial polynomial)
+       (lambda (p1 p2) (tag (add-poly p1 p2))))
+  (put 'mul '(polynomial polynomial)
+       (lambda (p1 p2) (tag (mul-poly p1 p2))))
+  (put 'make 'polynomial
+       (lambda (var terms) (tag (make-poly var terms))))
+  'done)
+#+END_SRC
+
+Polynomial addition is performed termwise. Terms of the same order must be combined. This is done by forming a new term of the same order whose coefficient is the sun of the coefficients of the addends. 
+
+In order to manipulate term lists, we will assume that we have a constructor the-empty-termlist that returns an empty list and a constructor adjoin-term that adjoins a new term to a term-list. 
+
+We also assume we have a predicate empty-termlist that tells if a given term list is empty, a selector first-term that extracts the highest order term from a term list, and a selector rest-terms that returns all but the highest order term from a term list. 
+
+To manipulate terms, we will suppose we have a constructor make-term that constructs a term with given order and coefficient, and selectors order and coeff that return the order and coefficient of the term. 
+
+#+BEGIN_SRC scheme
+(define (add-terms l1 l2)
+  (cond ((empty-termlist? l1) l2)
+        ((empty-termlist? l2) l1)
+        (else
+         (let ((t1 (first-term l1))
+               (t2 (first-term l2)))
+           (cond ((> (order t1)
+                     (order t2))
+                  (adjoin-term
+                   t1 (add-terms (rest-terms l1) l2)))
+                 ((< (order t1)
+                     (order t2))
+                  (adjoin-term
+                   t2 (add-terms l1 (rest-terms l2))))
+                 (else
+                  (adjoin-term
+                   (make-term (order t1)
+                              (add (coeff t1)
+                                   (coeff t2)))
+                   (add-terms (rest-terms l1)
+                              (rest-terms l2)))))))))
+#+END_SRC
+
+The most important thing to note is that we used the generic addition procedure add to add together the coefficients of the terms being combined. This has powerful consequences, as we will see. 
+
+For multiplication, we multiply each term of the first list by all the terms of the other list, repeatedly using mul-term-by-all-terms. The resulting term lists are accumulated into a sum. Multiplying two terms forms a term whose order is the sum of the orders of the factors and whose coefficient is the product of the coefficients of the factors. 
+
+#+BEGIN_SRC scheme
+(define (mul-terms l1 l2)
+  (if (empty-termlist? l1)
+      (the-empty-termlist)
+      (add-terms (mul-terms-by-all-terms (first-term l1) l2)
+                 (mul-terms (rest-terms l1) l2))))
+
+(define (mul-terms-by-all-terms t1 l1)
+  (if (empty-termlist? l1)
+      (the-empty-termlist)
+      (let ((t2 (first-term l1)))
+        (adjoin-term
+         (make-term (+ (order t1)
+                       (order t2))
+                    (mul (coeff t1)
+                         (coeff t2)))
+         (mul-terms-by-all-terms t1 (rest-terms l1))))))
+#+END_SRC
+
+Notice that since we use the generic procedures add and mul, our polynomial package is automatically able to handle any type of coefficient that is known about by the generic arithmetic package. 
+
+*** Representing Term Lists 
+
+A term list is, in effect, a set of coefficients keyed by the order of the term. Our procedures add-terms and mul-terms always access term lists sequentially from the highest to lowest order. Thus, we should use some kind of ordered list representation. 
+
+We will assume that term lists are represented as lists of terms, arranged high to low in order. 
+
+#+BEGIN_SRC scheme
+(define (adjoin-term term term-list)
+  (if (=zero? (coeff term))
+      term-list
+      (cons term term-list)))
+
+(define (the-empty-termlist) '())
+
+(define (first-term termlist)
+  (car termlist))
+
+(define (rest-terms termlist)
+  (cdr termlist))
+
+(define (empty-termlist? termlist)
+  (null? termlist))
+
+(define (make-term order coeff)
+  (list order coeff))
+
+(define (order term)
+  (car term))
+
+(define (coeff term)
+  (cadr term))
+
+(define (make-polynomial var terms)
+  ((get 'make 'polynomial) var terms))
+#+END_SRC
+
