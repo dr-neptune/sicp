@@ -188,6 +188,8 @@ He shows the problem to Alyssa P. Hacker, who says "The problem is that the comp
 (put 'angle '(complex) angle)
 #+END_SRC
 
+#+RESULTS:
+
 Describe in detail why this works. 
 
 From the text in the book below this particular diagram, we see that this is an example of a two tag system. What is going on here is that Louis wishes to access the selectors for a polar complex number, but he is using it on a 2-tag deep system. 
@@ -723,3 +725,163 @@ We will assume that term lists are represented as lists of terms, arranged high 
   ((get 'make 'polynomial) var terms))
 #+END_SRC
 
+*** Exercise 2.87 
+
+Install =zero? for polynomials in the generic arithmetic package. This will allow adjoin-term to work for polynomials with coefficients that are themselves polynomials. 
+
+#+BEGIN_SRC scheme
+(define (=zero? polynomial)
+  (empty-termlist? (term-list polynomial)))
+#+END_SRC
+
+*** Exercise 2.88
+
+Extend the polynomial system to include subtraction of polynomials. 
+
+#+BEGIN_SRC scheme
+(define (negate x) (apply-generic 'negate x))
+
+; define for scheme-numbers
+(put 'negate 'scheme-number
+     (lambda (n) (tag (- n))))
+
+; define for rational numbers 
+(put 'negate 'rational
+     (lambda (r) (make-rational (- (numer r))
+                           (denom r))))
+
+; define for complex numbers
+(put 'negate 'complex
+     (lambda (z) (make-from-real-imag (- (real-part z))
+                                 (- (imag-part z)))))
+
+; define for polynomials 
+(define (negate-terms termlist)
+  (if (empty-termlist? termlist)
+      termlist
+      (let (t ((first-term termlist)))
+        (adjoin-term (make-term (order t)
+                                (negate (coeff t)))
+                     (negate-terms (rest-terms termlist))))))
+
+(put 'negate 'polynomial
+     (lambda (poly) (make-polynomial (variable poly)
+                                (negate-terms (term-list poly)))))
+
+(put 'sub '(polynomial polynomial)
+     (lambda (x y) (tag (add-poly x (negate y)))))
+#+END_SRC
+
+*** Exercise 2.90
+
+Suppose we want a system that is efficient for both sparse and dense polynomials. 
+
+*** Hierarchies of Types in Symbolic Algebra 
+
+Our polynomial system shows how objects of one type (polynomials) may in fact be complex objects that have objects of many different types as parts. With generic operations, we need only define the appropriate generic operations for the parts. 
+
+** Extended Exercise : Rational Functions 
+
+We can extend our generic arithmetic system to include rational functions. These are fractions whose numerator and denominator are polynomials. 
+
+We seek to be able to add, subtract, multiply, and divide rational functions. 
+
+*** Exercise 2.93 
+
+Modify the rational-arithmetic package to use generic operations, but change make-rat so that it does not attempt to reduce fractions to lowest terms. 
+
+#+BEGIN_SRC scheme
+(define (install-rational-package)
+  ; internal procedures
+  (define (numer x) (car x))
+  (define (denom x) (cdr x))
+  (define (make-rat n d) (cons n d))
+  (define (add-rat r1 r2)
+    (make-rat (add (mul (numer r1) (denom r2))
+                   (mul (numer r2) (denom r1)))
+              (mul (denom r1) (denom r2))))
+  (define (sub-rat r1 r2)
+    (make-rat (sub (mul (numer r1) (denom r2))
+                   (mul (numer r2) (denom r1)))
+              (mul (denom x) (denom y))))
+  (define (div-rat r1 r2)
+    (make-rat (mul (numer r1) (denom r2))
+              (mul (numer r2) (denom r1))))
+  ; interface with system
+  )
+#+END_SRC
+
+We can reduce polynomial fractions to lowest terms using the same idea we used with integers: modifying make-rat to divide both the numerator and the denominator by theri greatest common divisor. 
+
+#+BEGIN_SRC scheme
+(define (gcd a b)
+  (if (= b 0)
+      a
+      (gcd b (remainder a b))))
+
+(define (gcd-terms a b)
+  (if (empty-termlist? b)
+      a
+      (gcd-terms b (remainder-terms a b))))
+#+END_SRC
+
+*** Exercise 2.94 
+
+Using div-terms implement the procedure remainder-terms and use this to define gcd-terms as above.
+
+#+BEGIN_SRC scheme
+(define (remainder-terms a b)
+  (cadr (div-terms a b)))
+#+END_SRC
+
+Now write a procedure gcd-poly that computes the polynomial GCD of two polys. 
+
+#+BEGIN_SRC scheme
+(define (gcd-poly p1 p2)
+  (if (same-variable? (variable p1)
+                      (variable p2))
+      (make-poly (variable p1)
+                 (gcd-terms (term-list p1)
+                            (term-list p2)))
+      (error "Polys are not the same variable -- GCD-POLY" (list p1 p2))))
+#+END_SRC
+
+Install in the system a generic operation greatest-common-divisor that reduce to gcd-poly for polynomials and to ordinary gcd for ordinary numbers. 
+
+#+BEGIN_SRC scheme
+(define (greatest-common-divisor a b)
+  (apply-generic 'greatest-common-divisor a b))
+
+(put 'greatest-common-divisor '(polynomial polynomial)
+     (lambda (a b) (tag (gcd-poly a b))))
+#+END_SRC
+
+*** Exercise 2.95 
+
+Skipping the rest
+
+Per the note: 
+
+Zippel's Algorithm is an efficient and elegant method for computing polynomial GCDs
+
+From Mathoverflow: 
+
+There are several algorithms to compute the gcd of two multivariate polynomials over rings. I'll mention an algorithm by Zippel which is widely used.
+
+Zippel's Algorithm [1]
+
+This is a probabilistic algorithm which uses a combination of dense and sparse interpolation to construct the GCD of polynomials. It is based on the observation that evaluating a polynomial at a random point will almost never yield zero (Schwartz-Zippel lemma) [1]. So, if a coefficient is determined to be zero somewhere in the interpolation process, the algorithm assumes it to be zero everywhere.
+
+Zippel's Algorithm requires a bound on partial degree in each variable d as an input. We substitute randomly chosen integers (starting point) for all but one variable. The solution is built up by interpolating for one variable at a time.The first polynomial produced involving a particular variable is done via dense interpolation. This polynomial is then used as a skeleton for a number of sparse interpolation. These sparse interpolations are used to introduce the next variable. After finding GCD modulo a prime, we treat it as a skeleton for finding the GCD modulo some other prime. The final polynomial is constructed using Chinese Remainder Algorithm.
+
+The correctness algorithm depends on the accuracy of the skeletal polynomials. Skeletal polynomials will have missing terms if some coefficients are zero at the starting point. But this happens rarely as the total number of zeros are bounded by Schwartz-Zippel lemma, which states that if the integers in starting point are chosen from a subset S of a field, then probability of a coefficient being zero is bounded by d/|S|, where d is the total degree of the coefficient.
+
+The algorithm performs O(ndt) evaluations for the interpolation process and runs in O(ndt3) operations, where n is the number of variables, d is the degree in each variable and t is the number of terms in the final polynomial. The algorithm still has some issues which can be found in [2] along with the ways in which they have been resolved.
+
+Take a look at [3] for a deterministic algorithm by Ben-Or and Tivari.
+
+[1] Zippel, Richard. ”Probabilistic algorithms for sparse polynomials.” Symbolic and algebraic computation (1979): 216-226.
+
+[2] de Kleine, Jennifer, Michael Monagan, and Allan Wittkopf. ”Algorithms for the Non-monic case of the Sparse Modular GCD Algorithm.” Proceedings of the 2005 international symposium on Symbolic and algebraic computation. ACM, 2005.
+
+[3] Ben-Or, Michael, and Prasoon Tiwari. ”A deterministic algorithm for sparse multivariate polynomial interpolation.” Proceedings of the twentieth annual ACM symposium on Theory of computing. ACM, 1988.
