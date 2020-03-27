@@ -1,0 +1,159 @@
+* Modularity, Objects, and State
+:PROPERTIES:
+:header-args: :session scheme :results value
+:ARCHIVE:
+:END:
+
+In the previous chapters we saw how primitive procedures and primitive data are combined to construct compound entities, and we learned that abstraction is vital in helping us to cope with the complexity of large systems. 
+
+Effective program synthesis also requires organizational principles that can guide us in formulating the overall design of a program. We need strategies to help us structure large systems so that they will be modular. 
+
+The way we organize a large program is dictated by our perception of the system to be modeled. In this chapter we view two different world views of the structure of systems. 
+
+- The first stategy is to view a large system as a collection of objects whose behaviors may change over time
+- An alternative concentrates on the streams of information that flow in the system 
+
+With objects, we must be concerned with how a computational object can change and yet maintain its identity. This means we must abandom our substitution model of computation in favor of the more mechanistic, but less theoretically tractable, environment model of computation. The difficulties of dealing with objects, change, and identity are a fundamental consequence of the need to grapple with time in our computational models. These difficulties become greater when we allow the possibility of concurrent execution of programs. 
+
+The stream approach can be most fully exploited when we decouple simulated time in our model from the order of the events that must take place in the computer during evaluation. We will accomplish this using a technique known as delayed evaluation. 
+
+** Assignment and Local State
+
+The objects in a system composed of many objects are rarely completely independent. The view that a system is composed of separate objects is most useful when the state variables of the system can be grouped into closely coupled subsystems that are only loosely coupled to other subsystems. 
+
+Each computational object must have its own local state variables describing the objects state. The state variables of the computational objects must be able to change over time. If we wish to model state variables by ordinary symbolic names in the programming language, then the language must provide an assignment operator to enable us to change the value associated with a name.
+
+** Local State Variables  
+
+#+BEGIN_SRC scheme
+(define balance 100)
+
+(define (withdraw amount)
+  (if (>= balance amount)
+      (begin (set! balance (- balance amount)) balance)
+      "Insufficient Funds"))
+
+(withdraw 20)
+(withdraw 25)
+(withdraw 50)
+(withdraw 6)
+#+END_SRC
+
+We can make balance internal to withdraw by rewriting the procedure as follows:
+
+#+BEGIN_SRC scheme
+(define new-withdraw
+  (let ((balance 100))
+    (lambda (amount)
+      (if (>= balance amount)
+          (begin (set! balance (- balance amount))
+                 balance)
+          "Insufficient Funds"))))
+
+(define new-withdraw-2
+  (let ((balance 100))
+    withdraw))
+
+(new-withdraw 20)
+(new-withdraw-2 20)
+#+END_SRC
+
+Within this local environment, we use lambda to create a procedure that takes amount as an argument and behaves like our previous withdraw procedure. This procedure, returned as a result of evaluating the let expression behaves in precisely the same way as withdraw, but whose variable balance is not accessible by any other procedure. 
+
+The variable balance is said to be encapsulated within the new procedure. This principle is known as the hiding principle: One can make a system more modular and robust by protecting parts of the system from each other. 
+
+The following procedure, make-withdraw, creates "withdrawl processors".
+
+#+BEGIN_SRC scheme
+(define (make-withdraw balance)
+  (lambda (amount)
+    (if (>= balance amount)
+        (begin (set! balance (- balance amount))
+               balance)
+        "Insufficient Funds")))
+
+(define W1 (make-withdraw 100))
+(define W2 (make-withdraw 100))
+
+(W1 50)
+(W2 70)
+#+END_SRC
+
+Observe that W1 and W2 are completely independent objects, each with its own local state variable balance. 
+
+We can also create objects that handle deposits as well as withdrawls, and thus represent simple bank accounts. 
+
+#+BEGIN_SRC scheme
+(define (make-account balance)
+  (define (withdraw amount)
+    (if (>= balance amount)
+        (begin (set! balance (- balance amount))
+               balance)
+        "Insufficient Funds"))
+  (define (deposit amount)
+    (set! balance (+ balance amount))
+    balance)
+  (define (dispatch m)
+    (cond ((eq? m 'withdraw) withdraw)
+          ((eq? m 'deposit) deposit)
+          (else (error "Unknown Request: MAKE-ACCOUNT" m))))
+  dispatch)
+#+END_SRC
+
+Each call to make-account sets up an environment with a local state variable balance. Within this environment, make-account defines procedures deposit and withdraw that access balance and an additional procedure dispatch that takes a message as input and returns one of the two local procedures. The dispatch procedure is returned as the value that represents the bank-account object. This is the message-passing style of programming that we saw earlier, although now we are using it in conjunction with the ability to modify local variables. 
+
+#+BEGIN_SRC scheme
+(define acc (make-account 100))
+
+((acc 'withdraw) 50)
+((acc 'deposit) 20)
+((acc 'withdraw) -10)
+#+END_SRC
+
+*** Exercise 3.1 
+
+An accumulator is a procedure that is called repeatedly with a single numeric argument and accumulates its arguments into a sum. Each time it is called it returns the currently accumulated sum. Write a procedure make-accumulator that generates accumulators, each maintaining an independent sum. The input to make-accumulator should specify the initial value of the sum.
+
+#+BEGIN_SRC scheme
+(define (make-accumulator start)
+  (lambda (add)
+    (set! start (+ start add))
+    start))
+
+(define howdy (make-accumulator 0))
+
+(howdy 1)
+(howdy (- (howdy 0)))
+#+END_SRC
+
+*** Exercise 3.2
+
+In software-testing applications, it is useful to be able to count the number of times a given procedure is called during the course of a computation. 
+
+Write a procedure make-monitored that takes as input a procedure, f, that itself takes one input. The result, returned by make-monitored is a third procedure, say mf, that keeps track of the number of times it has been called by maintaining an internal counter. 
+
+If the input to mf is the special symbol reset-count, then mf resets the counter to 0. For any other input, mf returns the result of calling f on that input and increments the counter.
+
+#+BEGIN_SRC scheme
+(define (make-monitored f)
+  (define how-many? (make-accumulator 0))
+  (define reset (how-many? (- (how-many? 0))))
+  (define (mf m)
+    (cond ((eq? m 'how-many?) (how-many? 0))
+          ((eq? m 'reset) reset)
+          (else (begin (how-many? 1)
+                       (f m)))))
+  mf)
+
+(define b (make-monitored sqrt))
+(b 100)
+10
+
+(b 'how-many?)
+1
+
+(b 'reset)
+(b 'how-many?)
+#+END_SRC
+
+Reset not working still 
