@@ -3,4 +3,253 @@
 :header-args: :session scheme :results verbatim raw
 :END:
 
+The desire to model systems composed of objects that have changing state leads us to the need to modify compound data objects, as well as to construct and select from them. We will design data abstractions to include mutators, which modify data objects. Data objects for which mutators are defined are known as mutable data objects. 
+
+** Mutable List Structure 
+
+The basic operations on pairs - cons, car, and cdr are incapable of modifying list structure. To modify list structures we need new operations. 
+
+The primitive mutators for pairs are set-car! and set-cdr!. The first takes two arguments, the first of which must be a pair. It replaces the car pointer by a pointer to the second argument to set-car! 
+
+The set-cdr! operation is similar, except that it sets the pointer for the cdr instead. 
+
+cons builds new list structure by creating new pairs, while set-c*r! modify existing pairs. We could implement cons in terms of the two mutators, together with a procedure get-new-pair which returns a new pair that is not part of any existing list structure. 
+
+#+BEGIN_SRC scheme
+(define (cons-mut x y)
+  (let ((new (get-new-pair)))
+    (set-car! new x)
+    (set-cdr! new y)
+    new))
+#+END_SRC
+
+*** Exercise 3.12 
+
+The following was introduced in 2.2.1: 
+
+#+BEGIN_SRC scheme
+(define (append x y)
+  (if (null? x)
+      y
+      (cons (car x)
+            (append (cdr x) y))))
+#+END_SRC
+
+The procedure append! is similar, but it is a mutator rather than a constructor. It appends the lists by splicing them together, modifying the final pair of x so that its cdr is now y. 
+
+#+BEGIN_SRC scheme
+(define (append! x y)
+  (set-cdr! (last-pair x) y)
+  x)
+
+(define (last-pair x)
+  (if (null? (cdr x))
+      x
+      (last-pair (cdr x))))
+#+END_SRC
+
+Consider the interaction 
+
+#+BEGIN_SRC scheme
+(define x (list 'a 'b))
+
+(define y (list 'c 'd))
+
+(define z (append x y))
+
+z
+(cdr x)
+(define w (append! x y))
+w
+(cdr x)
+#+END_SRC
+
+#+RESULTS:
+| b | c | d |
+
+*** Exercise 3.13 
+
+Consider the following make-cycle procedure which uses the last-pair procedure defined above. 
+
+#+BEGIN_SRC scheme
+(define (make-cycle x)
+  (set-cdr! (last-pair x) x)
+  x)
+#+END_SRC
+
+Draw a box and pointer diagram that shows the structure z created by 
+
+#+BEGIN_SRC scheme
+(define z (make-cycle (list 'a 'b 'c)))
+z
+#+END_SRC
+
+we essentially have a circular linked list. 
+
+What happens if we try to compute (last-pair z)?
+
+#+BEGIN_SRC scheme
+(last-pair z)
+#+END_SRC
+
+We enter an infinite loop, since the last pair is also the first pair. 
+
+*** Exercise 3.14 
+
+The following procedure is quite useful, although quite obscure
+
+#+BEGIN_SRC scheme
+(define (mystery x)
+  (define (loop x y)
+    (if (null? x)
+        y
+        (let ((temp (cdr x)))
+          (set-cdr! x y)
+          (loop temp x))))
+  (loop x '()))
+#+END_SRC
+
+Explain what mystery does in general. 
+
+It reverses the list
+
+'(1 2 3 4) -> '(4 3 2 1)
+
+*** Sharing and Identity 
+
+#+BEGIN_SRC scheme
+(define x (list 'a 'b))
+(define z1 (cons x x))
+#+END_SRC
+
+returns: 
+
+#+DOWNLOADED: /tmp/screenshot.png @ 2020-03-31 21:29:03
+[[file:Modeling with Mutable Data/screenshot_2020-03-31_21-29-03.png]]
+
+In contrast
+
+#+BEGIN_SRC scheme
+(define z2 (cons (list 'a 'b)
+                 (list 'a 'b)))
+#+END_SRC
+
+
+returns 
+
+
+#+DOWNLOADED: /tmp/screenshot.png @ 2020-03-31 21:29:44
+[[file:Modeling with Mutable Data/screenshot_2020-03-31_21-29-44.png]]
+
+In general, sharing is completely undetectable if we operate on lists using only cons, car and cdr. However, if we allow mutators on list structure, sharing becomes significant. 
+
+Consider the following procedure, which modifies the car of the structure to which it is applied: 
+
+#+BEGIN_SRC scheme
+(define (set-to-wow! x)
+  (set-car! (car x) 'wow)
+  x)
+#+END_SRC
+
+Even though z1 and z2 are the "same" structure, applying set-to-wow to them yields different results. With z1, changing the car also changes the cdr, because in z1 the car and cdr are the same pair. 
+
+With z2 the car and cdr are distinct, so set-to-wow! only modifies the car: 
+
+#+BEGIN_SRC scheme
+z1
+#+END_SRC
+
+#+RESULTS:
+| (a b) | a | b |
+
+#+BEGIN_SRC scheme
+(set-to-wow! z1)
+#+END_SRC
+
+#+RESULTS:
+| (wow b) | wow | b |
+
+#+BEGIN_SRC scheme
+z2
+#+END_SRC
+
+#+RESULTS:
+| (a b) | a | b |
+
+#+BEGIN_SRC scheme
+(set-to-wow! z2)
+#+END_SRC
+
+#+RESULTS:
+| (wow b) | a | b |
+
+As we will see in the following sections, we can exploit sharing to greatly extend the repertoire of data structures that can be represented by pairs. This can also be dangerous, since modifications made to structures will also affect other structures that happen to share the modified parts. These mutation operations should be used with care, for unless we have a good understanding of how our data objects are shared, mutation can have unexpected results. 
+
+*** Exercise 3.15
+
+From scheme-wiki:
+
+; z1 -> ( . )
+;        | |
+;        v v
+; x --> ( . ) -> ( . ) -> null
+;        |        |
+;        v        v
+;       'wow     'b
+
+; z2 -> ( . ) -> ( . ) -> ( . ) -> null
+;        |        |        |
+;        |        v        v
+;        |       'a       'b
+;        |                 ^
+;        |                 |
+;        `-----> ( . ) -> ( . ) -> null
+;                 |
+;                 v
+;                'wow
+
+*** Exercise 3.16 
+
+Ben Bitdiddle decides to write a procedure to count the number of pairs in any list structure. 
+
+#+BEGIN_SRC scheme
+(define (count-pairs x)
+  (if (not (pair? x))
+      0
+      (+ (count-pairs (car x))
+         (count-pairs (cdr x))
+         1)))
+#+END_SRC
+
+#+RESULTS:
+count-pairs
+
+Show that this procedure is not correct. 
+
+#+BEGIN_SRC scheme
+'((1 1) (1 1) (1 1))
+#+END_SRC
+
+Draw box and pointer diagrams representing list structures of exactly 3 pairs for which Ben's procedure would return 
+
+3 
+
+#+BEGIN_SRC scheme
+(count-pairs (list 'a 'b 'c))
+#+END_SRC
+
+4 
+
+#+BEGIN_SRC scheme
+(define zoop (list 'a))
+(define zipf (cons zoop zoop))
+(count-pairs (list zoop 'b 'c))
+#+END_SRC
+
+#+RESULTS:
+4
+
+7 
+
+infinite loop 
 
