@@ -232,24 +232,107 @@ Show that this procedure is not correct.
 
 Draw box and pointer diagrams representing list structures of exactly 3 pairs for which Ben's procedure would return 
 
-3 
+3
 
 #+BEGIN_SRC scheme
-(count-pairs (list 'a 'b 'c))
-#+END_SRC
-
-4 
-
-#+BEGIN_SRC scheme
-(define zoop (list 'a))
-(define zipf (cons zoop zoop))
-(count-pairs (list zoop 'b 'c))
+(define zipf (list 'a 'b 'c))
+(count-pairs zipf)
 #+END_SRC
 
 #+RESULTS:
+3
+
 4
 
-7 
+#+BEGIN_SRC scheme
+(count-pairs (list zipf)) 
+#+END_SRC 
 
-infinite loop 
+7
+#+BEGIN_SRC scheme
+(count-pairs (cons zipf zipf)) 
+#+END_SRC
 
+Infinite loop
+
+#+BEGIN_SRC scheme
+(set-cdr! (cddr zipf) zipf)
+(count-pairs zipf)
+#+END_SRC
+
+returns ;Aborting!: maximum recursion depth exceeded
+
+*** Exercise 3.17 
+
+Devise a correct version of the count-pairs procedure of 3.16 that returns the number of distinct pairs in any data structure.
+
+Hint: Traverse the structure, maintaining an auxiliary data structure that is used to keep track of which pairs have already been counted
+
+#+BEGIN_SRC scheme
+(define (count-pairs x)
+  (if (not (pair? x))
+      0
+      (+ (count-pairs (car x))
+         (count-pairs (cdr x))
+         1)))
+
+(define slist '(a b c))
+
+(define (seen? x seen-list)
+  (cond ((null? seen-list) #f)
+        ((eq? x (car seen-list)) #t)
+        (else (seen? x (cdr seen-list)))))
+
+(define (count-pairs x)
+  (let ((slist '()))
+    (cond ((not (pair? (car x))) 0)
+          ((not (seen? (car x)))
+           (begin (append! slist (car x))
+                  (+ (count-pairs (car x))
+                     (count-pairs (cdr x))
+                     1)))
+          ;; (else (count-pairs (cdr x)))
+          )))
+
+(count-pairs (list '(a b) '(b c) '(c d)))
+(count-pairs (list 'a 'b 'c))
+(count-pairs (list (list 1 2) (list 3 4) (list 5 6)))
+(pair? (car (list '(a b) '(b c) '(c d))))
+
+(define (count-pairs x)
+  (let ((encountered '()))
+    (define (helper x)
+      (if (or (not (pair? x))
+              (memq x encountered))
+          0
+          (begin (set! encountered (cons x encountered))
+                 (+ (helper (car x))
+                    (helper (cdr x))
+                    1))))
+    (helper x)))
+(count-pairs (list (zipf zipf)))
+
+#+END_SRC
+
+Couldn't get it to work. The solution doesn't seem to solve the problem 
+
+*** Exercise 3.18 
+
+Write a procedure that examines a list and determines whether it contains a cycle
+
+#+BEGIN_SRC scheme
+(define (cycle? ls)
+  (define (check-cycle ls seen-list)
+    (cond ((not (pair? ls)) #f)
+          ((memq ls seen-list) #t)
+          (else (check-cycle (cdr ls)
+                             (cons (car ls) seen-list)))))
+  (check-cycle ls '()))
+
+(cycle? (list 1 2 3))
+(define zoop (list 1 3 4))
+(set-cdr! (cddr zoop) zoop)
+(cycle? zoop)
+
+(memq (list 'a 'b 'c) (list 'a 'b 'c 'd 'a 'b 'c)) 
+#+END_SRC
