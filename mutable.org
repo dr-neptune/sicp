@@ -23,6 +23,8 @@ cons builds new list structure by creating new pairs, while set-c*r! modify exis
     new))
 #+END_SRC
 
+#+RESULTS:
+
 *** Exercise 3.12 
 
 The following was introduced in 2.2.1: 
@@ -444,6 +446,9 @@ A queue is represented as a pair of pointers, front-ptr and rear-ptr, which indi
   (set-cdr! queue item))
 #+END_SRC
 
+#+RESULTS:
+set-rear-ptr!
+
 Now we can focus on the queue operations: 
 
 #+BEGIN_SRC scheme
@@ -476,6 +481,9 @@ Now we can focus on the queue operations:
              queue)))
 #+END_SRC
 
+#+RESULTS:
+delete-queue!
+
 *** Exercise 3.21 
 
 Ben Bitdiddle decides to test the queue implementation described above. 
@@ -493,10 +501,13 @@ Ben Bitdiddle decides to test the queue implementation described above.
 (delete-queue! q1)
 #+END_SRC
 
+#+RESULTS:
+| (c d e f g) | g |
+
 The queue representation is a pair. When we delete all the elements of a queue, we are changing the pointer at the front of the queue. We never actually touch the rear-ptr of the queue here, so when we print the queue we are seeing the unchanging rear-ptr.
 
 #+BEGIN_SRC scheme
-(define (print-queue queue)
+ (define (print-queue queue)
   (display (front-ptr queue)))
 
 (define (print-queue queue)
@@ -528,25 +539,131 @@ Complete the definition and provide implementations of the queue operations usin
     (define (set-front-ptr! item)
       (set! front-ptr item))
     (define (set-rear-ptr! item)
-      (set! read-ptr item))
-    (define make-queue (cons front-ptr rear-ptr))
-    (define empty-queue?
+      (set! rear-ptr item))
+    (define (empty-queue?)
       (eq? front-ptr '()))
-    (define front-queue
+    (define (front-queue)
       (if (empty-queue?)
           (error "Front called with an empty queue")
           (car front-ptr)))
     (define (insert item)
       (let ((new-pair (cons item '())))
         (cond ((empty-queue?)
-               (set! front-ptr new-pair)
-               (set! rear-ptr new-pair))
+               (set-front-ptr! new-pair)
+               (set-rear-ptr! new-pair))
               (else
-               (set-cdr! read-ptr new-pair)
+               (set-cdr! rear-ptr new-pair)
                (set-rear-ptr! new-pair)))))
-    (define (delete-queue! queue)
-      ...)
+    (define (delete-queue!)
+      (cond ((empty-queue?)
+             (error "Delete called with an empty queue"))
+            (else (set-front-ptr! (cdr front-ptr)))))
+    (define (print-queue)
+      (map display front-ptr))
     (define (dispatch m)
-      ...)
+      (cond ((eq? m 'empty-queue?) empty-queue?)
+            ((eq? m 'front-queue) front-queue)
+            ((eq? m 'insert) insert)
+            ((eq? m 'delete-queue!) delete-queue!)
+            ((eq? m 'print-queue) print-queue)
+            (else (error "Operation not found!" m))))
     dispatch))
+
+(define zoop (make-queue))
+
+((zoop 'insert) 'g)
+((zoop 'print-queue))
+((zoop 'delete-queue!))
 #+END_SRC
+
+*** Exercise 3.23 
+
+A deque (double ended queue) is a sequence in which items can be inserted and deleted at either the front or the rear. Operations on deques are 
+
+- Constructor 
+  - make-deque
+- Predicate 
+  - empty-deque?
+- Selectors 
+  - front-deque 
+  - rear-deque 
+- Mutators 
+  - front-insert-deque! 
+  - rear-insert-deque! 
+  - front-delete-deque! 
+  - rear-delete-deque! 
+
+Show how to represent deques using pairs, and give implementations of the operations. 
+
+#+BEGIN_SRC scheme
+(define (make-deque)
+  (cons '() '()))
+
+(define (front-ptr deque)
+  (car deque))
+
+(define (rear-ptr deque)
+  (cdr deque))
+
+(define (empty-deque? deque)
+  (null? (front-ptr deque)))
+
+(define (set-front-deque! deque item)
+  (set-car! deque item))
+
+(define (set-rear-deque! deque item)
+  (set-cdr! deque item))
+
+(define (front-deque deque)
+  (if (empty-deque? deque)
+      '()
+      (car (front-ptr deque))))
+
+(define (rear-deque deque)
+  (if (empty-deque? deque)
+      '()
+      (car (rear-ptr deque))))
+
+(define (front-insert-deque! deque item)
+  (let ((new-pair (cons item '())))
+    (cond ((empty-deque? deque)
+           (set-front-deque! deque new-pair)
+           (set-rear-deque! deque new-pair)
+           deque)
+          (else
+           (set-cdr! new-pair (front-ptr deque))
+           (set-front-deque! deque new-pair)
+           deque))))
+
+(define (rear-insert-deque! deque item)
+  (let ((new-pair (cons item '())))
+    (cond ((empty-deque? deque)
+           (set-front-deque! deque new-pair)
+           (set-rear-deque! deque new-pair))
+          (else
+           (set-cdr! (rear-ptr deque) new-pair)
+           (set-rear-deque! deque new-pair)
+           deque))))
+
+(define (print-deque deque)
+  (map display (front-ptr deque)))
+
+(define zipf (make-deque))
+
+;; are you watching closely?
+
+(front-insert-deque! zipf 'c)
+(rear-insert-deque! zipf 'a)
+(front-insert-deque! zipf 'a)
+(rear-insert-deque! zipf 'd)
+(front-insert-deque! zipf 'r)
+(rear-insert-deque! zipf 'a)
+(front-insert-deque! zipf 'b)
+(rear-insert-deque! zipf 'b)
+(front-insert-deque! zipf 'a)
+(rear-insert-deque! zipf 'r)
+(rear-insert-deque! zipf 'a)
+
+(print-deque zipf)
+#+END_SRC
+
