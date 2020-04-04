@@ -23,8 +23,6 @@ cons builds new list structure by creating new pairs, while set-c*r! modify exis
     new))
 #+END_SRC
 
-#+RESULTS:
-
 *** Exercise 3.12 
 
 The following was introduced in 2.2.1: 
@@ -330,33 +328,225 @@ https://stackoverflow.com/questions/694669/what-is-the-scheme-function-to-find-a
 What is the difference between the three different functions? It's based on which equivalence function they use for comparison. *eq? (and thus memq) tests if two objects are the same underlying object*; it is basically equivalent to a pointer comparison (or direct value comparison in the case of integers). Thus, two strings or lists that look the same may not be eq?, because they are stored in different locations in memory. equal? (and thus member?) performs a deep comparison on lists and strings, and so basically any two items that print the same will be equal?. eqv? is like eq? for almost anything but numbers; for numbers, two numbers that are numerically equivalent will always be eqv?, but they may not be eq? (this is because of bignums and rational numbers, which may be stored in ways such that they won't be eq?)
 
 #+BEGIN_SRC scheme
-(cycle? (list 1 2 3 1 2 3))
+(cycle? (list 1 2 3 1))
 (define zoop (list 1 3 4))
 (set-cdr! (cddr zoop) zoop)
 (cycle? zoop)
 
 (define (cycle? ls)
-  (let ((seen '()) 
-    (define (recurse ls)
-      (cond ((null? (cdr ls)) #f)
-            ((not (pair? ls)) #f)
-            ((memq (cdr ls) seen) #t)
-            (else (begin (set! seen (cons ls seen))
-                         (or (recurse (car ls))
-                             (recurse (cdr ls)))))))
-    (recurse ls))))
-
-(define (cycle? ls)
   (let ((seen '()))
     (define (recurse ls)
-      (if (null? ls)
+      (if (not (pair? ls))
           #f
           (if (memq ls seen)
               #t
               (begin (set! seen (cons ls seen))
                      (or (recurse (car ls))
-                         (recurse cdr ls))))))
-    (recurse ls)))
+                         (recurse (cdr ls)))))))
+    (recurse ls)))  
+#+END_SRC
 
+*** Exercise 3.19 
+Redo 3.18 using an algorithm that takes only a constant amount of space 
 
+Floyd's cycle-finding algorithm is a pointer algorithm that uses only two pointers, which move through the sequence at different speeds. It is also called the "tortoise and the hare algorithm", alluding to Aesop's fable of The Tortoise and the Hare.
+
+#+BEGIN_SRC scheme
+(define (cycle? ls)
+  (define (floyd turtle hare)
+    (cond ((or (null? turtle)
+               (or (null? hare)
+                   (null? (cdr hare)))) #f)
+     ((eq? turtle hare) #t)
+     (else (floyd (cdr turtle)
+                  (cddr hare)))))
+  (floyd ls (cdr ls)))
+#+END_SRC
+
+*** Mutation is just assignment 
+
+When we introduced compound data, we observed that pairs can be represented purely in terms of procedures: 
+
+#+BEGIN_SRC scheme
+(define (cons-prod x y)
+  (define (dispatch m)
+    (cond ((eq? m 'car) x)
+          ((eq? m 'cdr) y)
+          (else (error "Undefined Operation CONS-PROD" m))))
+  dispatch)
+
+(define (car-prod z)
+  (z 'car))
+
+(define (cdr-prod z)
+  (z 'cdr))
+
+(cdr-prod (cons-prod 2 (list 1 2 3)))
+#+END_SRC
+
+The same holds true for mutable data. We can implement mutable data objects using assignment and local state.
+
+#+BEGIN_SRC scheme
+(define (cons-mut x y)
+  (define (set-x! v)
+    (set! x v))
+  (define (set-y! v)
+    (set! y v))
+  (define (dispatch m)
+    (cond ((eq? m 'car) x)
+          ((eq? m 'cdr) y)
+          ((eq? m 'set-car!) set-x!)
+          ((eq? m 'set-cdr!) set-y!)
+          (else (error "Undefined Operation CONS-MUT" m))))
+  dispatch)
+
+(define (car-mut z)
+  (z 'car))
+(define (cdr-mut z)
+  (z 'cdr))
+(define (set-car-mut! z new-val)
+  ((z 'set-car!) new-val))
+(define (set-cdr-mut! z new-val)
+  ((z 'set-cdr!) new-val))
+
+(define zipf (cons-mut 'a 'b))
+(cdr-mut zipf)
+#+END_SRC
+
+** Representing Queues 
+
+The mutators set-car and set-cdr enable us to use pairs to construct data structures that cannot be built with cons, car, and cdr alone. This section shows how to use pairs to represent a queue. 
+
+A queue is sometimes called a FIFO buffer. In terms of data abstractions we can regard a queue as being defined by the following set of operations: 
+
+- a constructor 
+  - (make-queue) returning an empty queue
+- two selectors 
+  - (empty-queue? queue) test if the queue is empty 
+  - (front-queue queue) returns the object at the front of the queue 
+- two mutators
+  - (insert-queue! queue item) inserts an item at the rear of the queue and returns the modified queue
+  - (delete-queue! queue) removes the item at the front of the queue and returns the modified queue as its value 
+
+A queue is represented as a pair of pointers, front-ptr and rear-ptr, which indicate the first and last pairs of an ordinary list. We can use cons to combine the two pointers, giving us our representation: 
+
+#+BEGIN_SRC scheme
+(define (front-ptr queue)
+  (car queue))
+
+(define (rear-ptr queue)
+  (cdr queue))
+
+(define (set-front-ptr! queue item)
+  (set-car! queue item))
+
+(define (set-rear-ptr! queue item)
+  (set-cdr! queue item))
+#+END_SRC
+
+Now we can focus on the queue operations: 
+
+#+BEGIN_SRC scheme
+(define (make-queue)
+  (cons '() '()))
+
+(define (empty-queue? queue)
+  (null? (front-ptr queue)))
+
+(define (front-queue queue)
+  (if (empty-queue? queue)
+      (error "FRONT called with empty queue")
+      (car (front-ptr queue))))
+
+(define (insert-queue! queue item)
+  (let ((new-pair (cons item '())))
+    (cond ((empty-queue? queue)
+           (set-front-ptr! queue new-pair)
+           (set-rear-ptr! queue new-pair)
+           queue)
+          (else
+           (set-cdr! (rear-ptr queue) new-pair)
+           (set-rear-ptr! queue new-pair)
+           queue))))
+
+(define (delete-queue! queue)
+  (if (empty-queue? queue)
+      (error "Cannot delete first element from empty queue")
+      (begin (set-front-ptr! queue (cdr (front-ptr queue)))
+             queue)))
+#+END_SRC
+
+*** Exercise 3.21 
+
+Ben Bitdiddle decides to test the queue implementation described above. 
+
+#+BEGIN_SRC scheme
+(define q1 (make-queue))
+(insert-queue! q1 'a)
+(insert-queue! q1 'b)
+(insert-queue! q1 'c)
+(insert-queue! q1 'd)
+(insert-queue! q1 'e)
+(insert-queue! q1 'f)
+(insert-queue! q1 'g)
+(delete-queue! q1)
+(delete-queue! q1)
+#+END_SRC
+
+The queue representation is a pair. When we delete all the elements of a queue, we are changing the pointer at the front of the queue. We never actually touch the rear-ptr of the queue here, so when we print the queue we are seeing the unchanging rear-ptr.
+
+#+BEGIN_SRC scheme
+(define (print-queue queue)
+  (display (front-ptr queue)))
+
+(define (print-queue queue)
+  (map display (front-ptr queue)))
+
+(print-queue q1)
+#+END_SRC
+
+*** Exercise 3.22 
+
+Instead of representing a queue as a pair of pointers, we can build a queue as a procedure with local state. The local state will consist of pointers to the beginning and the end of an ordinary list. Thus, the make-queue procedure will have the form:
+
+#+BEGIN_SRC scheme
+(define (make-queue)
+  (let ((front-ptr ...)
+        (rear-ptr ...))
+    <definitions of internal procedures>
+    (define (dispatch m)
+      ...)
+    dispatch))
+#+END_SRC
+
+Complete the definition and provide implementations of the queue operations using this representation. 
+
+#+BEGIN_SRC scheme
+(define (make-queue)
+  (let ((front-ptr '())
+        (rear-ptr '()))
+    (define (set-front-ptr! item)
+      (set! front-ptr item))
+    (define (set-rear-ptr! item)
+      (set! read-ptr item))
+    (define make-queue (cons front-ptr rear-ptr))
+    (define empty-queue?
+      (eq? front-ptr '()))
+    (define front-queue
+      (if (empty-queue?)
+          (error "Front called with an empty queue")
+          (car front-ptr)))
+    (define (insert item)
+      (let ((new-pair (cons item '())))
+        (cond ((empty-queue?)
+               (set! front-ptr new-pair)
+               (set! rear-ptr new-pair))
+              (else
+               (set-cdr! read-ptr new-pair)
+               (set-rear-ptr! new-pair)))))
+    (define (delete-queue! queue)
+      ...)
+    (define (dispatch m)
+      ...)
+    dispatch))
 #+END_SRC
