@@ -37,6 +37,9 @@ The following was introduced in 2.2.1:
             (append (cdr x) y))))
 #+END_SRC
 
+#+RESULTS:
+: append
+
 The procedure append! is similar, but it is a mutator rather than a constructor. It appends the lists by splicing them together, modifying the final pair of x so that its cdr is now y. 
 
 #+BEGIN_SRC scheme
@@ -501,9 +504,6 @@ Ben Bitdiddle decides to test the queue implementation described above.
 (delete-queue! q1)
 #+END_SRC
 
-#+RESULTS:
-| (c d e f g) | g |
-
 The queue representation is a pair. When we delete all the elements of a queue, we are changing the pointer at the front of the queue. We never actually touch the rear-ptr of the queue here, so when we print the queue we are seeing the unchanging rear-ptr.
 
 #+BEGIN_SRC scheme
@@ -665,5 +665,227 @@ Show how to represent deques using pairs, and give implementations of the operat
 (rear-insert-deque! zipf 'a)
 
 (print-deque zipf)
+#+END_SRC
+
+** Representing Tables 
+
+Here we see how to build tables as mutable list structures. 
+
+We first consider a 1d table in which each value is stored under a single key. We implement the table as a list of records, each of which is implemented as a pair consisting of a key and the corresponding value. The records are glued together to form a list by pairs whose cars point to successive records. These gluing pairs are called the backbone of the table. 
+
+lookup is defined in terms of the assoc operation, which expects a key and a list of records as arguments. assoc returns the record that has the given key as its car.
+
+#+BEGIN_SRC scheme
+(define (lookup key table)
+  (let ((record (assoc key (cdr table))))
+    (if record
+        (cdr record)
+        #f)))
+
+(define (assoc key records)
+  (cond ((null? records) #f)
+        ((equal? key (caar records))
+         (car records))
+        (else (assoc key (cdr records)))))
+
+#+END_SRC
+
+
+To insert a value in a table under a given key, we first use assoc to see if there is already a record in the table with this key. If not, we form a new record by consing the key with the value and insert this at the head of the table's list of records, after the top dummy record. If there is a record with this key, we set the cdr of this record to the designated new value. 
+
+#+BEGIN_SRC scheme
+(define (insert! key value table)
+  (let ((record (assoc key (cdr table))))
+    (if record
+        (set-cdr! record value)
+        (set-cdr! table
+                  (cons (cons key value)
+                        (cdr table)))))
+  'ok)
+#+END_SRC
+
+To construct a table, we simply create a list containing the symbol *table* 
+
+#+BEGIN_SRC scheme
+(define (make-table)
+  (list '*table*))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(define flubber (make-table))
+
+(insert! 'a 10 flubber)
+(insert! 'b 20 flubber)
+(insert! 'c 30 flubber)
+(insert! 'd 40 flubber)
+(insert! 'e 50 flubber)
+
+(lookup 'b flubber)
+#+END_SRC
+
+*** Two-Dimensional Tables 
+
+In a two-dimensional table, each value is indexed by two keys. We can construct such a table as a one-dimensional table in which each key identifies a subtable. 
+
+When we look up an item, we use the first key to identify the correct subtable. Then we use the second key to identify the record within the subtable. 
+
+#+BEGIN_SRC scheme
+(define (lookup key1 key2 table)
+  (let ((subtable (assoc key1 (cdr table))))
+    (if subtable
+        (let ((record (assoc key2 (cdr subtable))))
+          (if record
+              (cdr record)
+              #f))
+        #f)))
+#+END_SRC
+
+To insert a new item under a pair of keys, we use assoc to see if there is a subtable stored under the first key. If not, we build a new subtable containing the single record (key2, value) and insert it into the table under the first key. If a subtable already exists for the first key, we insert the new record into this subtable using the insertion method for one-dimensional tables described above
+
+#+BEGIN_SRC scheme
+(define (insert! key1 key2 value table)
+  (let ((subtable (assoc key1 (cdr table))))
+    (if subtable
+        (let ((record (assoc key2 (cdr subtable))))
+          (if record
+              (set-cdr! record value)
+              (set-cdr! subtable
+                        (cons (cons key2 value)
+                              (cdr subtable)))))
+        (set-cdr! table
+                  (cons (list key1
+                              (cons key2 value))
+                        (cdr table)))))
+  'ok)
+#+END_SRC
+
+*** Creating Local Tables 
+
+Our lookup and insert! operations above take the table as an argument -- this enables us to use programs that access more than one table. 
+
+We could deal with multiple tables by having a separate lookup and insert! procedure for each table. We do this by representing a table procedurally, as an object that maintains an internal table as part of its local state. When sent an appropriate message, this table object supplies the procedure with which to operate on the internal table. 
+
+#+BEGIN_SRC scheme
+(define (make-table)
+  (let ((local-table (list '*table*)))
+    (define (lookup key1 key2)
+      (let ((subtable (assoc key1 (cdr local-table))))
+        (if subtable
+            (let ((record (assoc key2 (cdr subtable))))
+              (if record
+                  (cdr record)
+                  false))
+            false)))
+    (define (insert! key1 key2 value)
+      (let ((subtable (assoc key1 (cdr local-table))))
+        (if subtable
+            (let ((record (assoc key2 (cdr subtable))))
+              (if record
+                  (set-cdr! record value)
+                  (set-cdr! subtable
+                            (cons (cons key2 value)
+                                  (cdr subtable)))))
+            (set-cdr! local-table
+                      (cons (list key1 (cons key2 value))
+                            (cdr local-table)))))
+      'ok)
+    (define (dispatch m)
+      (cond ((eq? m 'lookup-proc) lookup)
+            ((eq? m 'insert-proc!) insert!)
+            (else (error "Unknown Operation: TABLE" m))))
+    dispatch))
+#+END_SRC
+
+Using make-table we could implement the get and put operations used in 2.4.3 for data-directed programming as follows:
+
+#+BEGIN_SRC scheme
+(define operation-table (make-table))
+(define get (operation-table 'lookup-proc))
+(define put (operation-table 'insert-proc!))
+#+END_SRC
+
+get takes as argments two keys, and put takes as arguments two keys and a value. Both operations access the same local table, which is encapsulated within the object created by the call to make-table. 
+
+*** Exercise 3.24 
+
+In the table implementations above, the keys are tested for equality using equal? (called by assoc). This is not always the appropriate test.
+For example, we might have a table with numeric keys in which we don't need an exact match to the number we're looking up, but only a number within some tolerance of it. Design a table constructor make-table that takes as an argument a same-key? procedure that will be used to test "equality" of keys.
+
+
+#+BEGIN_SRC scheme
+
+(define (make-table same-key?)
+  (let ((local-table (list '*table*)))
+    (define (assoc key records)
+      (cond ((null? records) #f)
+            ((same-key? key (caar records))
+             (car records))
+            (else (assoc key (cdr records)))))
+    (define (lookup key1 key2)
+      (let ((subtable (assoc key1 (cdr local-table))))
+        (if subtable
+            (let ((record (assoc key2 (cdr subtable))))
+              (if record
+                  (cdr record)
+                  false))
+            false)))
+    (define (insert! key1 key2 value)
+      (let ((subtable (assoc key1 (cdr local-table))))
+        (if subtable
+            (let ((record (assoc key2 (cdr subtable))))
+              (if record
+                  (set-cdr! record value)
+                  (set-cdr! subtable
+                            (cons (cons key2 value)
+                                  (cdr subtable)))))
+            (set-cdr! local-table
+                      (cons (list key1 (cons key2 value))
+                            (cdr local-table)))))
+      'ok)
+    (define (dispatch m)
+      (cond ((eq? m 'lookup-proc) lookup)
+            ((eq? m 'insert-proc!) insert!)
+            (else (error "Unknown Operation: TABLE" m))))
+    dispatch))
+#+END_SRC
+
+*** Exercise 3.25 
+
+Generalizing one and two dimensional tables, show how to implement a table in which values are stored under an arbitrary number of keys and different values may be stored under different numbers of keys. 
+
+#+BEGIN_SRC scheme
+(define (make-table same-key?)
+  (let ((local-table (list '*table*)))
+    (define (assoc key records)
+      (cond ((null? records) #f)
+            ((same-key? key (caar records))
+             (car records))
+            (else (assoc key (cdr records)))))
+    (define (lookup key1 key2)
+      (let ((subtable (assoc key1 (cdr local-table))))
+        (if subtable
+            (let ((record (assoc key2 (cdr subtable))))
+              (if record
+                  (cdr record)
+                  false))
+            false)))
+    (define (insert! key1 key2 value)
+      (let ((subtable (assoc key1 (cdr local-table))))
+        (if subtable
+            (let ((record (assoc key2 (cdr subtable))))
+              (if record
+                  (set-cdr! record value)
+                  (set-cdr! subtable
+                            (cons (cons key2 value)
+                                  (cdr subtable)))))
+            (set-cdr! local-table
+                      (cons (list key1 (cons key2 value))
+                            (cdr local-table)))))
+      'ok)
+    (define (dispatch m)
+      (cond ((eq? m 'lookup-proc) lookup)
+            ((eq? m 'insert-proc!) insert!)
+            (else (error "Unknown Operation: TABLE" m))))
+    dispatch))
 #+END_SRC
 
