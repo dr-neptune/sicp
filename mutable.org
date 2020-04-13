@@ -436,7 +436,7 @@ A queue is sometimes called a FIFO buffer. In terms of data abstractions we can 
 A queue is represented as a pair of pointers, front-ptr and rear-ptr, which indicate the first and last pairs of an ordinary list. We can use cons to combine the two pointers, giving us our representation: 
 
 #+BEGIN_SRC scheme
-(define (front-ptr queue)
+(define (front-ptr queue) 
   (car queue))
 
 (define (rear-ptr queue)
@@ -449,8 +449,6 @@ A queue is represented as a pair of pointers, front-ptr and rear-ptr, which indi
   (set-cdr! queue item))
 #+END_SRC
 
-#+RESULTS:
-set-rear-ptr!
 
 Now we can focus on the queue operations: 
 
@@ -483,9 +481,6 @@ Now we can focus on the queue operations:
       (begin (set-front-ptr! queue (cdr (front-ptr queue)))
              queue)))
 #+END_SRC
-
-#+RESULTS:
-delete-queue!
 
 *** Exercise 3.21 
 
@@ -690,6 +685,9 @@ lookup is defined in terms of the assoc operation, which expects a key and a lis
 
 #+END_SRC
 
+#+RESULTS:
+assoc
+
 
 To insert a value in a table under a given key, we first use assoc to see if there is already a record in the table with this key. If not, we form a new record by consing the key with the value and insert this at the head of the table's list of records, after the top dummy record. If there is a record with this key, we set the cdr of this record to the designated new value. 
 
@@ -708,7 +706,7 @@ To construct a table, we simply create a list containing the symbol *table*
 
 #+BEGIN_SRC scheme
 (define (make-table)
-  (list '*table*))
+  (list '*table*)) 
 #+END_SRC
 
 #+BEGIN_SRC scheme
@@ -847,18 +845,28 @@ For example, we might have a table with numeric keys in which we don't need an e
             ((eq? m 'insert-proc!) insert!)
             (else (error "Unknown Operation: TABLE" m))))
     dispatch))
+
 #+END_SRC
 
 *** Exercise 3.25 
 
 Generalizing one and two dimensional tables, show how to implement a table in which values are stored under an arbitrary number of keys and different values may be stored under different numbers of keys. 
 
+Thought process: 
+
+We have the table implementation above that allows for a two 2d table. We essentially define which "column" the key is in, then we select that column and look for the key. In order to generalize it, we need to generalize all the methods of the table object that are limited to 2 keys.
+
+In this case, those would be lookup and insert! 
+
+Here is the original for reference:
+
 #+BEGIN_SRC scheme
-(define (make-table same-key?)
+
+(define (make-table)
   (let ((local-table (list '*table*)))
     (define (assoc key records)
       (cond ((null? records) #f)
-            ((same-key? key (caar records))
+            ((equal? key (caar records))
              (car records))
             (else (assoc key (cdr records)))))
     (define (lookup key1 key2)
@@ -887,5 +895,261 @@ Generalizing one and two dimensional tables, show how to implement a table in wh
             ((eq? m 'insert-proc!) insert!)
             (else (error "Unknown Operation: TABLE" m))))
     dispatch))
+
 #+END_SRC
+
+and the update: 
+
+#+BEGIN_SRC scheme
+(define (make-table)
+  (let ((local-table (list '*table*)))
+    (define (assoc key records)
+      (cond ((null? records) #f)
+            ((equal? key (caar records))
+             (car records))
+            (else (assoc key (cdr records)))))
+
+    (define (lookup key-list)
+      (if (null? key-list)
+          false
+          (let ((subtable (assoc (car key-list) (cdr local-table))))
+            (if subtable
+                (let ((record (assoc (cdr key-list) (cdr subtable))))
+                  (if record
+                      (cdr record)
+                      false))
+                (lookup (cdr key-list))))))
+    
+    (define (insert! key-list value)
+      (define (get-there keys)
+        (let ((result (assoc (car keys) (cdr local-table))))
+          (if (null? (cdr keys))
+              (if result
+                  (set-cdr! (result value))
+                  (set-cdr! local-table
+                            (cons (cons (cons (car keys) value) '()) (cdr local-table))))
+              (if result
+                  (get-there (cdr keys))
+                  (begin (set-cdr! local-table
+                                   (cons (cons (cons (cdr keys) value) '()) (cadr local-table))))))))
+      (get-there key-list))
+    (define (dispatch m)
+      (cond ((eq? m 'lookup-proc) lookup)
+            ((eq? m 'insert-proc!) insert!)
+            (else (error "Unknown Operation: TABLE" m))))
+    dispatch))
+#+END_SRC
+
+*** Exercise 3.26 
+
+Describe a table implementation where the (key, value) records are organized using a binary tree, assuming the keys can be ordered in some way.
+
+First we set up the representation for the tree. Before we had (node left right), but in this case our node is a key value pair.
+
+#+BEGIN_SRC scheme
+(define (make-tree node left right)
+  (list node left right))
+
+(define (tree-node tree)
+  (car tree))
+
+(define (tree-left tree)
+  (cadr tree))
+
+(define (tree-right tree)
+  (caddr tree))
+
+(define (tree-node-key tree-node)
+  (car tree-node))
+
+(define (tree-node-value tree-node)
+  (cdr tree-node))
+#+END_SRC
+
+Then we can reimplement the table's structure
+
+#+BEGIN_SRC scheme
+(define (make-tree-table)
+  (let ((local-table '()))
+    
+    (define (adjoin-set x set) 
+      (cond ((null? set) (make-tree x '() '())) 
+            ((= (car x) (car (tree-node set))) set) 
+            ((< (car x) (car (tree-node set))) 
+             (make-tree (tree-node set) 
+                        (adjoin-set x (tree-left set)) 
+                        (tree-right set))) 
+            ((> (car x) (car (tree-node set))) 
+             (make-tree (tree-node set) 
+                        (tree-left set) 
+                        (adjoin-set x (tree-right set)))))) 
+    
+    (define (lookup key table)
+      (cond ((null? table) #f)
+            ((= key (tree-node-key table))
+             (tree-node-value table))
+            ((< key (tree-node-key table))
+             (lookup key (tree-left table)))
+            ((> key (tree-node-key table))
+             (lookup key (tree-right table)))))
+    
+    (define (insert! key value)
+      (let ((record (lookup key local-table)))
+        (if record
+            (set-cdr! record value)
+            (set! local-table (adjoin-set (cons key value) local-table)))))
+
+    (define (lookup-key key)
+      (lookup key local-table))
+    
+    (define (dispatch m)
+      (cond ((eq? m 'lookup) lookup)
+            ((eq? m 'insert) insert!)
+            ((eq? m 'print) local-table)
+            (else (error "Undefined Operation -- TABLE" m))))
+    dispatch))
+
+(define zipf (make-tree-table))
+(define get (zipf 'lookup))
+(define put (zipf 'insert))
+
+(put 43 'a)
+#+END_SRC
+
+Neither 25 nor 26 work 
+
+*** Exercise 27 
+
+#+BEGIN_SRC scheme
+(define (memoize f)
+  (let ((table (make-table)))
+    (lambda (x)
+      (let ((previously-computed-result
+             (lookup x table)))
+        (or previously-computed-result
+            (let ((result (f x)))
+              (insert! x result table)
+              result))))))
+
+(define memo-fib
+  (memoize
+   (lambda (n)
+     (cond ((= n 0) 0)
+           ((= n 1) 1)
+           (else (+ (memo-fib (- n 1))
+                    (memo-fib (- n 2))))))))
+
+(memo-fib 6)
+#+END_SRC
+
+memo-fib computed the nth fibonacci number in steps proportional to n because the lookup table allows us to cache each step previously computed and then use those to get the next step. 
+
+** A Simulator for Digital Circuits 
+
+In this section we design a system for performing digital logic simulations. This typifies a type of program called an event-driven simulation, in which actions ("events") trigger further events that happen at a later time, which in turn trigger more events, and so on. 
+
+Our computational model of a circuit will be composed of objects that correspond to the elmentary components from which the circuit is constructed. 
+
+There are wires, which carry digital signals that may be 0 or 1. There are also various types of digital function boxes, which connect wires carrying input signals to other output wires. 
+
+#+BEGIN_SRC scheme
+(define (half-adder a b s c)
+  (let ((d (make-wire))
+        (e (make-wire)))
+    (or-gate a b d)
+    (and-gate a b c)
+    (inverter c e)
+    (and-gate d e s)
+    'ok))
+#+END_SRC
+
+Now we can use half-adder itself as a building block in creating more complex circuits. 
+
+#+BEGIN_SRC scheme
+(define (full-adder a b c-in sum c-out)
+  (let ((s (make-wire))
+        (c1 (make-wire))
+        (c2 (make-wire)))
+    (half-adder b c-in s c1)
+    (half-adder a s sum c2)
+    (or-gate c1 c2 c-out)
+    'ok))
+#+END_SRC
+
+*** Primitive Function Boxes 
+
+The primitive function boxes implement the forces by which a change in the signal on one wire influences the signals on other wires. To build these, we use the following operations on wires:
+
+- (get-signal wire) returns the current value of the signal on the wire
+- (set-signal! wire new-val) changes the value of the signal on the wire to the new value
+- (add-action! wire procedure of no args) asserts that the designated procedure should be run whenever the signal on the wire changes value. These are the vehicles by which changes in the signal value on the wire are communicated to other wires 
+
+Now we can definite primitive digital logic functions. To connect an input to an output through an inverter, we use add-action! to associate with the input wire a procedure that will be run whenever the signal on the input wire changes value. The procedure computes the logical-not of the input signal, and then, after one inverter-delay, sets the output signal to be this new value: 
+
+#+BEGIN_SRC scheme
+(define (inverter input output)
+  (define (invert-input)
+    (let ((new-val (logical-not (get-signal input))))
+      (after-delay inverter-delay
+                   (lambda () (set-signal! output new-val)))))
+  (add-action! input invert-input))
+
+(define (logical-not s)
+  (cond ((= s 0) 1)
+        ((= s 1) 0)
+        (else (error "Invalid Signal" s))))
+
+(define (and-gate a1 a2 output)
+  (define (and-action-proc)
+    (let ((new-val (logical-and (get-signal a1)
+                                (get-signal a2))))
+      (after-delay and-gate-delay
+                   (lambda () (set-signal! output new-val)))))
+  (add-action! a1 and-action-proc)
+  (add-action! a2 and-action-proc)
+  'ok)
+
+(define (logical-and s1 s2)
+  (cond ((and (= s1 1)
+              (= s2 1)) 1)
+        ((or (= s1 0)
+             (= s2 0)) 0)
+        (else (error "Invalid Signals" s1 s2))))
+#+END_SRC
+
+*** Exercise 3.28 
+
+Define an or-gate as a primitive function box. 
+
+#+BEGIN_SRC scheme
+(define (and-gate a1 a2 output)
+  (define (and-action-proc)
+    (let ((new-val (logical-and (get-signal a1)
+                                (get-signal a2))))
+      (after-delay and-gate-delay
+                   (lambda () (set-signal! output new-val)))))
+  (add-action! a1 and-action-proc)
+  (add-action! a2 and-action-proc)
+  'ok)
+
+(define (logical-or s1 s2)
+  (cond ((or (= s1 1)
+              (= s2 1)) 1)
+        ((= s1 0) 0)
+        (else (error "Invalid Signals" s1 s2))))
+
+(define (or-gate a1 a2 output)
+  (define (or-action-proc)
+    (let ((new-val (logical-or (get-signal a1)
+                               (get-signal a2))))
+      (after-delay or-date-delay
+                   (lambda () (set-signal! output new-val)))))
+  (add-action a1 or-action-proc)
+  (add-action a2 or-action-proc)
+  'ok)
+#+END_SRC
+
+*** Exercise 3.29 
+
+Another way to construct an or-gate is as a compound digital logic device, built from and-gates and inverters. Define a procedure or-gate that accomplishes this. What is the delay time of the or-gate in terms or gate-delay and inverter-delay? 
 
