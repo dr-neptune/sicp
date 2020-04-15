@@ -1122,16 +1122,6 @@ Now we can definite primitive digital logic functions. To connect an input to an
 Define an or-gate as a primitive function box. 
 
 #+BEGIN_SRC scheme
-(define (and-gate a1 a2 output)
-  (define (and-action-proc)
-    (let ((new-val (logical-and (get-signal a1)
-                                (get-signal a2))))
-      (after-delay and-gate-delay
-                   (lambda () (set-signal! output new-val)))))
-  (add-action! a1 and-action-proc)
-  (add-action! a2 and-action-proc)
-  'ok)
-
 (define (logical-or s1 s2)
   (cond ((or (= s1 1)
               (= s2 1)) 1)
@@ -1153,3 +1143,154 @@ Define an or-gate as a primitive function box.
 
 Another way to construct an or-gate is as a compound digital logic device, built from and-gates and inverters. Define a procedure or-gate that accomplishes this. What is the delay time of the or-gate in terms or gate-delay and inverter-delay? 
 
+AND
+1 1 1
+1 0 0 
+0 1 0
+0 0 0
+
+OR
+1 1 1
+1 0 1
+0 1 1
+0 0 0
+
+NAND
+1 1 0
+1 0 1 
+0 1 1
+0 0 1
+
+A B -A -B n-a-b
+1 1  0  0   1
+1 0  0  1   1
+0 1  1  0   1
+0 0  1  1   0
+
+So our or gate can be expressed as nand(not(a), not(b))
+
+and our gate diagram looks like 
+
+a -- > |
+       NAND(., .) --
+b -- > |
+
+#+BEGIN_SRC scheme
+(define (logical-nand a b)
+  (if (and (= a 1)
+            (= n 1))
+       #f
+       #t))
+
+(define (nand-gate a1 a2 output)
+  (define (nand-action-proc)
+    (let ((new-val (logical-nand (get-signal a1)
+                                 (get-signal a2))))
+      (after-delay and-gate-delay
+                   (lambda () (set-signal! output new-val)))))
+  (add-action! a1 nand-action-proc)
+  (add-action! a2 nand-action-proc)
+  'ok)
+
+(define (or-gate-and a b)
+  (let ((c make-wire)
+        (d make-wire)
+        (e make-wire))
+    (inverter a c)
+    (inverter b d)
+    (nand-gate c d e)))
+#+END_SRC
+
+*** Exercise 3.30 
+
+Write a procedure ripple-carry-adder that generates the circuit 
+
+As a reminder, here is the full-adder
+
+#+BEGIN_SRC scheme
+(define (full-adder a b c-in sum c-out)
+  (let ((s (make-wire))
+        (c1 (make-wire))
+        (c2 (make-wire)))
+    (half-adder b c-in s c1)
+    (half-adder a s sum c2)
+    (or-gate c1 c2 c-out)
+    'ok))
+#+END_SRC
+
+We need to feed in the c value to the first adder
+
+Then for each full adder, we need to pass the sum, a, and b, and input the previous adders c and push out the new-c. 
+
+If we reach the end of the list, our output is 0.
+
+All we are missing to have a proper traversal of all these lists in parallel is:
+- the list of c values starting with C input itself 
+- the list of c values out, which will be the lagged outputs of each of the adders concluding with c_n = 0
+
+
+
+#+BEGIN_SRC scheme
+(define (ripple-carry-adder a-list b-list s-list c)
+  (let ((c-list-vals (map (lambda (x) (make-wire)) (cdr a-list)))
+        (c-list-in (append (list c) c-list-out))
+        (c-list-out (append c-list-vals (make-wire))))
+    (map full-adder a-list b-list c s-list c-list-out)))
+#+END_SRC
+
+** Representing Wires 
+
+A wire in our simulation will be a computational object with two local state variables: a signal-value (initially 0) and a collection to action-procedures to be run when the signal changes value. 
+
+The local-procedure set-my-signal! tests whether the new signal value changes the signal on the wire. If so, it runs each of the action procedures, using the following procedure call-each, which calls each of the items in a list of no-argument procedures. 
+
+#+BEGIN_SRC scheme
+(define (make-wire)
+  (let ((signal-value 0)
+        (action-procedures '()))
+    (define (set-my-signal! new-value)
+      (if (not (= signal-value new-value))
+          (begin (set! signal-value new-value)
+                 (call-each action-procedures))
+          'done))
+    (define (accept-action-procedure! proc)
+      (set! action-procedures
+            (cons proc action-procedures))
+      (proc))
+    (define (dispatch m)
+      (cond ((eq? m 'get-signal) signal-value)
+            ((eq? m 'set-signal!) set-my-signal!)
+            ((eq? m 'add-action!) accept-action-procedure!)
+            (else (error "Unknown Operation: WIRE" m))))
+    dispatch))
+
+(define (call-each procedures)
+  (if (null? procedures)
+      'done
+      (begin ((car procedures))
+             (call-each (cdr procedures)))))
+
+(define (get-signal wire)
+  (wire 'get-signal))
+
+(define (set-signal! wire new-value)
+  ((wire 'set-signal!) new-value))
+
+(define (add-action! wire action-procedure)
+  ((wire 'add-action!) action-procedure))
+#+END_SRC
+
+We have modeled wires as procedures with local state variables that are modified by assignment. When a new wire is created, a new set of state variables is allocated and a new dispatch procedure is constructed and returned, capturing the environment with the new state variables. 
+
+The wires are shared among the devices connected to them, so a change made by an interaction with one device will affect all of the other devices attached to the wire. 
+
+** The Agenda 
+
+We need to maintain a data structure, called an agenda, that contains a schedule of things to do. 
+
+- (make-agenda) returns an empty agenda
+- (empty-agenda? agenda) true is agenda is empty
+- (first-agenda-item agenda) car agenda
+- (remove-first-agenda-item! agenda) modifies the agenda by removing the first item
+- (add-to-agenda! time action agenda) modifies the agenda by adding the given action procedure to be run at the specified time
+- (current-time agenda) returns the current simulation time 
