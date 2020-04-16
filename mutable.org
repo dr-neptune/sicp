@@ -1294,3 +1294,27 @@ We need to maintain a data structure, called an agenda, that contains a schedule
 - (remove-first-agenda-item! agenda) modifies the agenda by removing the first item
 - (add-to-agenda! time action agenda) modifies the agenda by adding the given action procedure to be run at the specified time
 - (current-time agenda) returns the current simulation time 
+
+The procedure after-delay adds new elements to the-agenda
+
+#+BEGIN_SRC scheme
+(define (after-delay delay action)
+  (add-to-agenda!
+   (+ delay (current-time the-agenda))
+   action
+   the-agenda))
+#+END_SRC
+
+The simulation is driven by the procedure propagate, operating on the-agenda, executing each procedure on the agenda in sequence.
+
+#+BEGIN_SRC scheme
+(define (propagate)
+  (if (empty-agenda? the-agenda)
+      'done
+      (let ((first-item
+             (first-agenda-item the-agenda)))
+        (first-item)
+        (remove-first-agenda-item! the-agenda)
+        (propagate))))
+#+END_SRC
+
