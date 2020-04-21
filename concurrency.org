@@ -1,0 +1,177 @@
+* Concurrency: Time is of the Essence 
+:PROPERTIES:
+:header-args: :session scheme :results verbatim raw
+:END:
+
+The central issue lurking beneath the complexity of state, sameness, and change is that by introducing assignment we are forced to admit time into our computational models. 
+
+** The Nature of Time in Concurrent Systems 
+
+#+BEGIN_SRC scheme
+(define (withdraw amount)
+  (if (>= balance amount)
+      (begin
+        (set! balance
+              (- balance amount))
+        balance)
+      "Insufficient Funds"))
+#+END_SRC
+
+** Correct Behavior of Concurrent Programs 
+
+To make concurrent programs behave correctly, we may have to place some restrictions on concurrent execution. 
+
+*** Exercise 3.38 
+
+Suppose that Peter, Paul and Mary share a joint bank account with $100 and they execute the following: 
+
+#+BEGIN_SRC scheme
+Peter: (set! balance (+ balance 10))
+Paul:  (set! balance (- balance 20))
+Mary:  (set! balance (- balance (/ balance 2)))
+#+END_SRC
+
+1. List all the different possible values for balance after these 3 transactions have bee completed
+
+let P be Peter, L be Paul, M be Mary. Then we have 3! possible orderings:
+
+PLM : 100 110 90 45 
+PML : 100 110 55 35
+LPM : 100 80  90 45
+LMP : 100 80  40 50
+MLP : 100 50  30 40
+MPL : 100 50  60 40
+
+2. What are some other values that could be produced if the system allows the processes to be interleaved?
+
+This adds a whole other layer of complexity to the system. Each of the time steps has multiple possible intermediate steps which could present mismatches between the actual balance in the bank and the current state of the balance in the bank being presented to the user. This would in turn also skew the operations effects as well. 
+
+** Mechanisms for Controlling Concurrency 
+
+Many mechanisms have been designed for the purpose of constraining the interleaving of concurrent processes that we can be sure program behavior is correct. We describe the serializing here. 
+
+*Serialization* implements the following idea: Processes will execute concurrently, but there will be collections of procedures that cannot be executed concurrently. Serialization creates distinguished sets of procedures such that only one executin of a procedure in each serialized set is permitted to happen at a time. 
+
+
+*Serializers in Scheme* 
+
+#+BEGIN_SRC scheme
+(parallel-execute <p1> ... <pn>)
+
+(define x 10)
+(parallel-execute (lambda () (set! x (* x x)))
+                  (lambda () (set! x (+ x 1))))
+#+END_SRC
+
+We can constrain the concurrency by using serialized procedures, which are created by serializers.
+
+#+BEGIN_SRC scheme
+(define x 10)
+(define s (make-serializer))
+(parallel-execute
+ (s (lambda () (set! x (* x x))))
+ (s (lambda () (set! x (+ x 1)))))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(define (make-account balance)
+  (define (withdraw amount)
+    (if (>= balance amount)
+        (begin (set! balance
+                     (- balance amount))
+               balance)
+        "Insufficient Funds"))
+  (define (deposit amount)
+    (set! balance (+ balance amount))
+    balance)
+  (let ((protected (make-serializer)))
+    (define (dispatch m)
+      (cond ((eq? m 'withdraw)
+             (protected withdraw))
+            ((eq? m 'deposit)
+             (protected deposit))
+            ((eq? m 'balance)
+             balance)
+            (else (error "Unknown Request: MAKE-ACCOUNT" m))))
+    dispatch))
+#+END_SRC
+
+*** Exercise 3.39 
+
+Which of the five possibilities in the parallel execution shown above remain if we instead serialize execution as follows?
+
+#+BEGIN_SRC scheme
+(define x 10)
+(define s (make-serializer))
+(parallel-execute
+ (lambda () (set! x ((s (lambda () (* x x))))))
+ (s (lambda () (set! x (+ x 1)))))
+#+END_SRC
+
+if p1 goes first and serializes it, we end up with 100 and then 1, so 101 
+if p2 goes first and serializes it, we end up with 11, and then 11^2, so 121 
+
+*** Exercise 3.40 
+
+Give all the possible values of x that can result from executing
+
+#+BEGIN_SRC scheme
+(define x 10)
+(parallel-execute
+ (lambda () (set! x (* x x)))
+ (lambda () (set! x (* x x x))))
+#+END_SRC
+
+There is no serialization here, so we have 1 value with two timesteps and the interleave for which it could be either or. So we get 2*2*2 = 8 possible outcomes
+100, 1000, 100^3, 1000^2
+
+let the first lamba be p1 and the second be p2 and access be a1 a2 respectively
+then we have the procedures 
+a1 p1 100
+a2 p2 1000
+a1 p1 a2 p2 100^3
+a1 p2 a2 p1 1000^2
+a2 p1 a1 p2 100^3
+a2 p2 a1 p2 1000^2
+
+Which of these possibilities remain if we instead use serialized procedures? 
+
+#+BEGIN_SRC scheme
+(define x 10)
+(define s (make-serializer))
+(parallel-execute
+ (s (lambda () (set! x (* x x))))
+ (s (lambda () (set! x (* x x x)))))
+#+END_SRC
+
+a1 p1 a2 p2 10 100 100 100^3
+
+*** Exercise 3.41
+
+Ben Bitdiddle worries that it would be better to implement the bank account as follows:
+
+#+BEGIN_SRC scheme
+(define (make-account balance)
+  (define (withdraw amount)
+    (if (>= balance amount)
+        (begin
+          (set! balance
+                (- balance amount))
+          balance)
+        "Insufficient Funds"))
+  (define (deposit amount)
+    (set! balance (+ balance amount))
+    balance)
+  (let ((protected (make-serializer)))
+    (define (dispatch m)
+      (cond ((eq? m 'withdraw)
+             (protected withdraw))
+            ((eq? m 'deposit)
+             (protected deposit))
+            ((eq? m 'balance)
+             ((protected
+               (lambda () balance))))
+            (else
+             (error "Unknown Request: MAKE-ACCOUNT" m))))
+    dispatch))
+#+END_SRC
