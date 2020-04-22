@@ -1720,26 +1720,26 @@ The local procedure set-my-value is called when there is a request to set the co
 Using primitive multiplier, adder, and constant constraints, define a procedure averager that takes 3 connectors, a, b, and c as inputs and establishes the constraint that the value of c is the average of the values of a and b. 
 
 #+BEGIN_SRC scheme
-
-(define (celsius-fahrenheit-converter c f)
-  (let ((u (make-connector))
-        (v (make-connector))
-        (w (make-connector))
-        (x (make-connector))
-        (y (make-connector)))
-    (multiplier c w u)
-    (multiplier v x u)
-    (adder v y f)
-    (constant 9 w)
-    (constant 5 x)
-    (constant 32 y)
-    'ok))
-
 (define (averager a b c)
   (let ((u (make-connector))
         (v (make-connector)))
     (adder a b u)
     (constant 0.5 v)
-    (multiplier c v u))
+    (multiplier u v c))
   'ok)
 #+END_SRC
+
+*** Exercise 3.34 
+
+Louis Reasoner wants to build a squarer, a constraint device with two terminals such that the value of connector b on the second terminal will always be the square of the value a on the first terminal.
+
+He proposes: 
+
+#+BEGIN_SRC scheme
+(define (squarer a b)
+  (multiplier a a b))
+#+END_SRC
+
+There is a serious flaw in this idea. Explain.
+
+Our multiplier seeks to deal with 3 variables, m1, m2, and product. In this case, it will always only have a single multiplicand and the product. 

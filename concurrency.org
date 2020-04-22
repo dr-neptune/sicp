@@ -175,3 +175,98 @@ Ben Bitdiddle worries that it would be better to implement the bank account as f
              (error "Unknown Request: MAKE-ACCOUNT" m))))
     dispatch))
 #+END_SRC
+
+because allowing unserialized access to the bank balance can result in anomalous behavior. 
+
+Do you agree? Is there any scenario that demonstrates Ben's concern? 
+
+I disagree. If we serialize both withdraw and deposit, there won't be a chance for the wrong balance to be pulled from the account as it will be "frozen" for the duration of the operation.
+
+*** Exercise 3.42 
+
+Ben Bitdiddle suggests that make-account could be changed so that the calls to protected are done outside the dispatch procedure. Then an account would return the same serialized procedure (which was created at the same time as the account) each time it is asked for a withdrawl procedure. 
+
+#+BEGIN_SRC scheme
+(define (make-account balance)
+  (define (withdraw amount)
+    (if (>= balance amount)
+        (begin (set! balance (- balance amount))
+               balance)
+        "Insufficient Funds"))
+  (define (deposit amount)
+    (set! balance (+ balance amount))
+    balance)
+  (let ((protected-withdraw (protected withdraw))
+        (protected-deposit (protected deposit)))
+    (define (dispatch m)
+      (cond ((eq? m 'withdraw) protected-withdraw)
+            ((eq? m 'deposit) protected-deposit)
+            ((eq? m 'balance) balance)
+            (else (error "Unknown Request: MAKE-ACCOUNT" m))))
+    dispatch))
+#+END_SRC
+
+Is this a safe change to make? Is there any difference in what concurrency is allowed by these two versions of make-account? 
+
+Suppose that protected returns a newly made serializer group. Then:
+
+No, this *is not* a safe change to make. When Ben creates two different protected values, one for each of withdraw and deposit, he is creating two separate sets of operations that are contained together. This essentially makes both of them end up being unserialized, since neither share the serialization state with each other. 
+
+Alternatively, if protected simple adds an operation to a serializer group, then this *is* a safe change to make and it is equivalent to the original version given in the book (though slightly more verbose).
+
+** Complexity of Using Multiple Shared Resources 
+
+While using serializers is relatively straight forward when there is only a single shared resource (like a single bank account), concurrent programming can be treacherously difficult when there are multiple shared resources.
+
+Suppose we wish to swap the balances in two bank accounts:
+
+#+BEGIN_SRC scheme
+(define (exchange acc1 acc2)
+  (let ((difference (- (acc1 'balance)
+                       (acc2 'balance))))
+    ((acc1 'withdraw) difference)
+    ((acc2 'deposit) difference)))
+#+END_SRC
+
+For correct behavior, we must arrange for the exchange procedure to lock out any other concurrent accesses to the accounts during the entire time of the exchange. 
+
+One way we can accomplish this is by using both account's serializers to serialize the entire exchange procedure. We can do this by arranging for access to an account' serializer. This is deliberately breaking the modularity of the bank account object by exposing the serializer.  
+
+#+BEGIN_SRC scheme
+(define (make-account-and-serializer balance)
+  (define (withdraw amount)
+    (if (>= balance amount)
+        (begin (set! balance (- balance amount))
+               balance)
+        "Insufficient Funds"))
+  (define (deposit amount)
+    (set! balance (+ balance amount))
+    balance)
+  (let ((balance-serializer (make-serializer)))
+    (define (dispatch m)
+      (cond ((eq? m 'withdraw) withdraw)
+            ((eq? m 'deposit) deposit)
+            ((eq? m 'balance) balance)
+            ((eq? m 'serializer) balance-serializer)
+            (else (error "Unknown Request: MAKE-ACCOUNT" m))))
+    dispatch))
+#+END_SRC
+
+Unlike our earlier serialized account, it is now the responsibility of each user of bank-account objects to explicitly manage the serialization
+
+#+BEGIN_SRC scheme
+(define (deposit account amount)
+  (let ((s (account 'serializer))
+        (d (account 'deposit)))
+    ((s d) amount)))
+#+END_SRC
+
+With this exported serializer technique, we can implement a serialized exchange program.
+
+#+BEGIN_SRC scheme
+(define (serialized-exchange acc1 acc2)
+  (let ((ser1 (acc1 'serializer))
+        (ser2 (acc2 'serializer)))
+    ((ser1 (ser2 exchange))
+     acc1 acc2)))
+#+END_SRC
