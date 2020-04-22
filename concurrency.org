@@ -6,7 +6,7 @@
 The central issue lurking beneath the complexity of state, sameness, and change is that by introducing assignment we are forced to admit time into our computational models. 
 
 ** The Nature of Time in Concurrent Systems 
-
+   
 #+BEGIN_SRC scheme
 (define (withdraw amount)
   (if (>= balance amount)
@@ -16,6 +16,8 @@ The central issue lurking beneath the complexity of state, sameness, and change 
         balance)
       "Insufficient Funds"))
 #+END_SRC
+
+#+RESULTS:
 
 ** Correct Behavior of Concurrent Programs 
 
@@ -270,3 +272,120 @@ With this exported serializer technique, we can implement a serialized exchange 
     ((ser1 (ser2 exchange))
      acc1 acc2)))
 #+END_SRC
+
+*** Exercise 3.43 
+
+Suppose that the balances in three accounts start out at $10, $20, $30 and that multiple processes run, exchanging the balances in the accounts. Argue that if the processes are run sequentially, after any number of concurrent exchanges, the account balances will be the same in some order.
+
+Suppose we have three accounts, a1, a2, and a3. Then we have essentially 3 slots for them to exist in, and 3! permutations for them. If they are serialized, then these happen sequentially and there is not a problem. 
+
+Suppose they were not serialized. Then for each interwoven point, we would have discrepancies with the read option leading to an explosion of possible errors and bugs. 
+
+*** Exercise 3.44
+
+Consider the problem of transferring an amount from one account to another. 
+
+#+BEGIN_SRC scheme
+(define (transfer from to amount)
+  ((from 'withdraw) amount)
+  ((to 'deposit) amount))
+#+END_SRC
+
+Ben Bitdiddle claims this can be accomplished with the procedure above even with multiple people concurrently transferring money among multiple accounts if we have serialized deposit and withdrawl transactions.
+
+Louis Reasoner claims there is a problem here and that we need to use a transfer method at least as sophisticated as the exchange problem used (in which we serialized the accounts explicitly and then serialized the operation).
+
+When we withdraw from an account that is serialized, we don't need the other account to be available as well. Similarly, when we deposit to an account, we don't need the other account to be available. When we exchange the balances however, we do. In this case, we don't need the more complex method as the operations withdraw and deposit are independent.
+
+*** Exercise 3.45 
+
+** Implementing Serializers 
+
+We implement serializers in terms of the more primitive synchronization mechanism called a mutex. 
+
+A mutex supports two operations: the mutex can be acquired, an dthe mutex can be released. Once a mutex has been acquired, not other acquire operations on that mutex may proceed until the mutex is released. 
+
+#+BEGIN_SRC scheme
+(define (make-serializer)
+  (let ((mutex (make-mutex)))
+    (lambda (p)
+      (define (serialized-p . args)
+        (mutex 'acquire)
+        (let ((val (apply p args)))
+          (mutex 'release)
+          val))
+      serialized-p)))
+#+END_SRC
+
+The mutex is a mutable object that can hold the value true or false. If true, the mutex is unavailable, and any process that attempts to acquire the mutex must wait.
+
+#+BEGIN_SRC scheme
+(define (make-mutex)
+  (let ((cell (list false)))
+    (define (the-mutex m)
+      (cond ((eq? m 'acquire)
+             (if (test-and-set! cell)
+                 (the-mutex 'acquire)))
+            ((eq? m 'release)
+             (clear! cell))))
+    the-mutex))
+
+(define (clear! cell)
+  (set-car! cell false))
+
+(define (test-and-set! cell)
+  (if (car cell)
+      true
+      (begin (set-car! cell true)
+             false)))
+#+END_SRC
+
+This implementation of test-and-set! doesn't suffice because we have not ensured that the operation performs atomically. We must guarantee that once a process has tested a cell and found it to be false, the contents will be set to true before any other process can test the cell. 
+
+*** Exercise 3.46 
+
+Suppose we ping the process test-and-set! for a cell and the cell is at that moment set to false. Then at the same time, another process pings the mutex and sees that the process is set to false as well. Then, they both acquire the mutex, which is then set to TRUE and these two operations are no longer mutually exclusive. 
+
+*** Exercise 3.47 
+
+A semaphore of size n is a generalization of a mutex. It supports acquire and release operations, but it is more general in that up to n processes can acquire it concurrently. 
+
+Give implementations of semaphores: 
+
+1. In terms of mutexes 
+
+make a mutex, but instead of a true false value, we have a counter up to n and for each of these values spin up a mutex 
+
+#+BEGIN_SRC scheme
+(define (make-semaphore n)
+  (let ((cell 0)
+        (mutex (make-mutex)))
+    (define (the-semaphore m)
+      (cond ((eq? m 'acquire)
+             (if (< cell n)
+                 (begin (mutex 'acquire)
+                        (set! cell (+ cell 1)))))
+            ((eq? m 'release)
+             (if (> cell 0)
+                 (begin (mutex 'release)
+                        (set! cell (- cell 1)))
+                 (error "No Cells Found! -- MAKE-SEMAPHORE")))
+            (else (error "Unknown Operation -- MAKE-SEMAPHORE" m))))
+    the-semaphore))
+#+END_SRC
+
+** Deadlock
+
+There is still a problem with our account exchanging procedure, even if we use a serializer. 
+
+Peter attempts to swap a1 and a2. Paul concurrently attempts to swap a2 and a1. Peters serialized procedure protects a1, and then Pauls serialized procedure protects a2. Now Peter cannot proceed until a2 is unprotected, and Paul cannot proceed until a1 is unprotected. Each is stalled forever, waiting for the other. This situation is called deadlock. 
+
+One way to avoid this is to give each account a unique id number and rewrite serialized-exchange so that a process will always attempt to enter a procedure protecting the lowest number first. 
+
+*** Exercise 3.48 
+
+Explain in detail why the deadlock avoidance method above avoids deadlock in the exchange problem. 
+
+Rewrite serialized-exchange to incorporate this idea. 
+
+
