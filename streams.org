@@ -2,7 +2,6 @@
 :PROPERTIES:
 :header-args: :session scheme :results verbatim raw
 :END:
-
 In this section, we explore an alternative approach to modeling state, based on data structures called streams. We will see how to model change in terms of sequences that represent the time histories of the systems being modeled. 
 
 From an abstract point of view, a stream is simply a sequence. As an alternative, we also look at the technique of delayed evaluation. 
