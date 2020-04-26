@@ -386,6 +386,43 @@ One way to avoid this is to give each account a unique id number and rewrite ser
 
 Explain in detail why the deadlock avoidance method above avoids deadlock in the exchange problem. 
 
+This essentially creates a priority queue for certain procedures dependent on the unique id number. This will guarantee that concurrent processes are only somewhat concurrent.
+
 Rewrite serialized-exchange to incorporate this idea. 
+
+Here is the original version of serialized-exhange:
+
+#+BEGIN_SRC R :post round-tbl[:colnames yes](*this*)
+(define (serialized-exchange acc1 acc2)
+  (let ((ser1 (acc1 'serializer))
+        (ser2 (acc2 'serializer)))
+    ((ser1 (ser2 exchange))
+     acc1 acc2)))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(define (serialized-exchange acc1 acc2)
+  (let ((ser1 (acc1 'serializer-with-id))
+        (ser2 (acc2 'serializer-with-id)))
+    (if (> (get-id acc1)
+           (get-id acc2))
+        (begin (set! ser1 (acc1 'serializer))
+               (set! ser2 (acc2 'serializer)))
+        (begin (set! ser1 (acc2 'serializer))
+               (set! ser2 (acc1 'serializer))))
+    ((ser1 (ser2 exchange)) acc1 acc2)))
+#+END_SRC
+
+*** Exercise 3.49 
+
+Give a scenario where the deadlock avoidance mechanism described above doesn't work. 
+
+Suppose we have a scenario like exchange, but in order to know the balance of acc1, the procedure for checking that balance needs to access some auxiliary object, aux1. Then, if this is not known and locked down beforehand, the exchange between acc1 and aux1 is susceptible to deadlock by any competing processes that use aux1. This can get out of hand quickly and warrants a need to a scheduler of sorts. 
+
+** Concurrency, Time and Communication 
+
+Programming concurrent systems requires controlling the ordering of events when different processes access shared state -- but we can't be clear about what is meant by "shared state". 
+
+Synchronizing different processes, establishing shared state, or imposing an order on events requires communication among the processes. Any notion of time in concurrency control must be intimately tied to communication. 
 
 
