@@ -1,0 +1,105 @@
+* Streams
+():PROPERTIES:
+:header-args: :session scheme :results verbatim raw
+:END:
+
+In this section, we explore an alternative approach to modeling state, based on data structures called streams. We will see how to model change in terms of sequences that represent the time histories of the systems being modeled. 
+
+From an abstract point of view, a stream is simply a sequence. As an alternative, we also look at the technique of delayed evaluation. 
+
+Stream processing allows us to model systems that have state without ever using assignment or mutable data. 
+
+** Streams are Delayed Lists 
+
+Sequences as standard interfaces for combining program modules allow us some very powerful abstractions, such as map, filter, and accumulate. Unfortunately, representing sequences as lists brings forth a severe inefficiency with regards to time and space complexity. When we represent our manipulations on sequences as transformations of lists, our programs must construct and copy data structures at every step of the process. 
+
+To see why this is true, let us compare two programs for computing the sum of all the prime numbers in an interval.
+
+First, in an imperative style:
+
+#+BEGIN_SRC scheme
+(define (sum-primes a b)
+  (define (iter count accum)
+    (cond ((> count b) accum)
+          ((prime? count)
+           (iter (+ count 1)
+                 (+ count accum)))
+          (else (iter (+ count 1) accum))))
+  (iter a 0))
+#+END_SRC
+
+And with the sequence operations: 
+
+#+BEGIN_SRC scheme
+(define (sum-primes a b)
+  (accumulate + 0
+              (filter prime?
+                      (enumerate-interval a b))))
+#+END_SRC
+
+In our first function, our overhead is essentially the local state variables. In the second function, before filter can even begin to look at whether a term is prime or not, enumerate-interval needs to create a list containing all of the possible values. 
+
+Streams are a clever idea that allows one to use sequence manipulations without incurring the costs of manipulating sequences as lists. We can formulate programs elegantly as sequence manipulations, while attaining the efficiency of incremental computation. The basic idea is to arrange to construct a stream only partially, and to pass the partial construction to the program that consumes the stream. If the consumer attempts to access a part of the stream that has not yet been constructed, the stream will automatically construct just enough more of itself to produce the required part, thus preserving the illusion that the entire stream exists. 
+
+On the surface, streams are just lists with different names for the procedures that manipulate them. 
+
+#+BEGIN_SRC scheme
+(stream-car (cons-stream x y))
+(stream-cdr (cons-stream x y))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(define (stream-ref s n)
+  (if (= n 0)
+      (stream-car s)
+      (stream-ref (stream-cdr s) (- n 1))))
+
+(define (stream-map proc s)
+  (if (stream-null? s)
+      the-empty-stream
+      (cons-stream (proc (stream-car s))
+                   (stream-map proc (stream-cdr s)))))
+
+(define (stream-for-each proc s)
+  (if (stream-null? s)
+      'done
+      (begin (proc (stream-car s))
+             (stream-for-each (stream-cdr s)))))
+
+(define (display-stream s)
+  (stream-for-each display-line s))
+
+(define (display-line x)
+  (newline)
+  (display x))
+#+END_SRC
+
+To make the stream implementation automatically and transparently interleave the construction of a stream with its use, we will arrange for the cdr of a stream to be evaluated when it is accessed by the stream-cdr procedure rather than when the stream is constructed by cons-stream. 
+
+As a data abstraction, streams are the same as lists. The difference is the time at which the elements are evaluted -- for lists both car and cdr are evaluated at construction time, whereas with streams the cdr is evaluated at selection time. 
+
+Our implementation of streams will be based on a special form called (delay exp). Evaluating (delay exp) doesn't evaluate exp, but returns a delayed object which we can think of as a promise to evaluate exp at some future time. As a companion, there is a procedure called force that takes a delayed object as an argument and performs the evaluation -- in effect forcing delay to fulfill its promise.
+
+cons-stream is a special form defined so that
+(cons-stream a b) is equivalent to (con a (delay b))
+
+This means we will construct streams using pairs. Rather than placing the value of the rest of the stream into the cdr of the pair we will put a promise to compute the rest if it is ever requested. 
+
+#+BEGIN_SRC scheme
+(define (stream-car stream)
+  (car stream))
+
+(define (stream-cdr stream)
+  (force (cdr stream)))
+#+END_SRC
+
+** The Stream Implementation in Action
+
+Let us analyze the outrageous prime computations reformulated in terms of streams 
+
+#+BEGIN_SRC scheme
+(stream-car
+ (stream-cdr
+  (stream-filter prime?
+                 (stream-enumerate-interval 10000 1000000))))
+#+END_SRC
