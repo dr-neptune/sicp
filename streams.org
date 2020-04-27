@@ -10,6 +10,53 @@ Stream processing allows us to model systems that have state without ever using 
 
 ** Streams are Delayed Lists 
 
+#+BEGIN_SRC scheme
+(define (square x)
+  (* x x))
+
+(define (smallest-divisor n)
+  (find-divisor n 2))
+
+(define (find-divisor n test-divisor)
+  (cond ((> (square test-divisor) n) n)
+        ((divides? test-divisor n) test-divisor)
+        (else (find-divisor n (+ test-divisor 1)))))
+
+(define (divides? a b)
+  (= (remainder b a) 0))
+
+(define (prime? n)
+  (= n (smallest-divisor n)))
+
+(prime? 11)
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(define (filter predicate sequence)
+  (cond ((null? sequence) '())
+        ((predicate (car sequence))
+         (cons (car sequence)
+               (filter predicate (cdr sequence))))
+        (else (filter predicate (cdr sequence)))))
+
+(filter odd? (list 1 2 3 4 5))
+
+(define (accumulate op initial sequence)
+  (if (null? sequence)
+      initial
+      (op (car sequence)
+          (accumulate op initial (cdr sequence)))))
+
+(accumulate + 0 (list 1 2 3 4 5))
+
+(define (enumerate-interval low high)
+  (if (> low high)
+      '()
+      (cons low (enumerate-interval (+ low 1) high))))
+
+(enumerate-interval 2 7)
+#+END_SRC
+
 Sequences as standard interfaces for combining program modules allow us some very powerful abstractions, such as map, filter, and accumulate. Unfortunately, representing sequences as lists brings forth a severe inefficiency with regards to time and space complexity. When we represent our manipulations on sequences as transformations of lists, our programs must construct and copy data structures at every step of the process. 
 
 To see why this is true, let us compare two programs for computing the sum of all the prime numbers in an interval.
@@ -25,6 +72,8 @@ First, in an imperative style:
                  (+ count accum)))
           (else (iter (+ count 1) accum))))
   (iter a 0))
+
+(sum-primes 1 5)
 #+END_SRC
 
 And with the sequence operations: 
@@ -34,6 +83,8 @@ And with the sequence operations:
   (accumulate + 0
               (filter prime?
                       (enumerate-interval a b))))
+
+(sum-primes 1 5)
 #+END_SRC
 
 In our first function, our overhead is essentially the local state variables. In the second function, before filter can even begin to look at whether a term is prime or not, enumerate-interval needs to create a list containing all of the possible values. 
@@ -97,8 +148,226 @@ This means we will construct streams using pairs. Rather than placing the value 
 Let us analyze the outrageous prime computations reformulated in terms of streams 
 
 #+BEGIN_SRC scheme
+(define (stream-enumerate-interval low high)
+  (if (> low high)
+      the-empty-stream
+      (cons-stream low
+                   (stream-enumerate-interval (+ low 1) high))))
+
 (stream-car
  (stream-cdr
   (stream-filter prime?
                  (stream-enumerate-interval 10000 1000000))))
+
+(cons 10000 (delay (stream-enumerate-interval 10001 1000000)))
 #+END_SRC
+
+
+#+BEGIN_SRC scheme
+(define (stream-filter pred stream)
+  (cond ((stream-null? stream) the-empty-stream)
+        ((pred (stream-car stream))
+         (cons-stream (stream-car stream)
+                      (stream-filter pred
+                                     (stream-cdr stream))))
+        (else (stream-filter pred (stream-cdr stream)))))
+
+(cons 10007
+      (delay (stream-filter prime?
+                            (cons 10008
+                                  (delay (stream-enumerate-interval 100009 1000000))))))
+#+END_SRC
+
+In general, we can think of delayed evaluation as "demand driven" programming, whereby each stage in the stream process is activated only enough to satisfy the next stage. 
+
+** Implementing delay and force 
+
+delay must package an expression so that it can be evaluated later on demand, and we can accomplish this by simply treating the expression as the body of a procedure. delay can be  a special form such that (delay exp) is syntactic sugar for (lambda () exp)
+
+force simply calls the procedure (of no arguments) produced by delay, so we can implemnent force as a procedure:
+
+(define (force delayed-object) (delayed-object))
+
+In order to stop inefficiency with repeated evaluations of the same delayed object, we can build the objects so that the first time they are forced, we store the value they computed. We implement delay as a special-purpose memoized procedure. 
+
+#+BEGIN_SRC scheme
+(define (memo-proc proc)
+  (let ((already-run? false)
+        (result false))
+    (lambda ()
+      (if (not already-run?)
+          (begin (set! result (proc))
+                 (set! already-run? true)
+                 result)
+          result))))
+#+END_SRC 
+
+delay is then defined so that (delay exp) is equivalent to 
+
+(memo-proc (lambda () exp))
+
+
+*** Exercise 3.50 
+
+Complete the following definition, which generalizes stream-map to allow procedures that take multiple arguments, analogous to map 
+
+#+BEGIN_SRC scheme
+(define (stream-map proc . argstreams)
+  (if (<??> (car argstreams))
+      the-empty-stream
+      (<??>
+       (apply proc (map <??> argstreams))
+       (apply stream-map
+              (cons proc (map <??> argstreams))))))
+#+END_SRC
+
+
+#+BEGIN_SRC scheme
+(define (stream-map proc . argstreams)
+  (if (stream-null? (car argstreams))
+      the-empty-stream
+      (cons-stream
+       (apply proc (map stream-car argstreams))
+       (apply stream-map
+              (cons proc (map stream-cdr argstreams))))))
+#+END_SRC
+
+*** Exercise 3.51 
+
+In order to take a closer look at delayed evaluation, we will use the following procedure, which simply returns its argument after printing it: 
+
+#+BEGIN_SRC scheme
+(define (show x)
+  (display-line x)
+  x)
+#+END_SRC
+
+What does the interpreter print in response to evaluating each expression in the following sequence? 
+
+#+BEGIN_SRC scheme :results output
+(define x
+  (stream-map show (stream-enumerate-interval 0 10)))
+
+(stream-ref x 5)
+#+END_SRC
+
+#+RESULTS:
+
+0
+1
+2
+3
+4
+5
+
+#+BEGIN_SRC scheme :results output
+(stream-ref x 7)
+#+END_SRC
+
+#+RESULTS:
+
+6
+7
+
+*** Exercise 3.52
+
+Consider the sequence of expressions 
+
+#+BEGIN_SRC scheme :results output
+(define sum 0)
+
+(define (accum x)
+  (set! sum (+ x sum))
+  sum)
+
+(define seq
+  (stream-map accum
+              (stream-enumerate-interval 1 20)))
+
+(define y (stream-filter even? seq))
+
+(define z (stream-filter (lambda (x) (= (remainder x 5) 0))
+                         seq))
+
+(stream-ref y 7)
+(display-stream z)
+#+END_SRC
+
+What is the value of sum after each of the above expressions is evaluated?
+
+#+BEGIN_SRC scheme
+(define sum 0)
+sum
+#+END_SRC
+
+#+RESULTS:
+0
+
+#+BEGIN_SRC scheme
+(define (accum x)
+  (set! sum (+ x sum))
+  sum)
+
+sum
+#+END_SRC
+
+#+RESULTS:
+0
+
+#+BEGIN_SRC scheme
+(define seq
+  (stream-map accum
+              (stream-enumerate-interval 1 20)))
+
+sum
+#+END_SRC
+
+#+RESULTS:
+1
+
+This happens because we eagerly evaluate the car of a stream. 
+
+#+BEGIN_SRC scheme
+(define y (stream-filter even? seq))
+sum
+#+END_SRC
+
+#+RESULTS:
+6
+
+Our initial state is a sum of 1. 
+
+Then we ask the stream to filter those elements which are even out 
+
+
+
+#+BEGIN_SRC scheme
+(define z (stream-filter (lambda (x) (= (remainder x 5) 0))
+                         seq))
+sum
+#+END_SRC
+
+#+RESULTS:
+10
+
+#+BEGIN_SRC scheme
+(stream-ref y 7)
+#+END_SRC
+
+#+RESULTS:
+136
+
+
+#+BEGIN_SRC scheme
+(display-stream z)
+#+END_SRC
+
+#+RESULTS: 10 
+
+
+What is the printed response to evaluating the stream-ref and display-stream expressions?
+
+Would these responses differ if we had implemented (delay exp) simply as (lambda () exp) without using the optimization provided by memo-proc? explain.
+
+** Infinite Streams 
+
