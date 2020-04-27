@@ -1,6 +1,7 @@
 * Streams
 :PROPERTIES:
 :header-args: :session scheme :results verbatim raw
+:ARCHIVE:
 :END:
 In this section, we explore an alternative approach to modeling state, based on data structures called streams. We will see how to model change in terms of sequences that represent the time histories of the systems being modeled. 
 
@@ -31,6 +32,10 @@ Stream processing allows us to model systems that have state without ever using 
 (prime? 11)
 #+END_SRC
 
+#+RESULTS:
+#t
+#t
+
 #+BEGIN_SRC scheme
 (define (filter predicate sequence)
   (cond ((null? sequence) '())
@@ -57,6 +62,10 @@ Stream processing allows us to model systems that have state without ever using 
 (enumerate-interval 2 7)
 #+END_SRC
 
+#+RESULTS:
+(2 3 4 5 6 7)
+(2 3 4 5 6 7)
+
 Sequences as standard interfaces for combining program modules allow us some very powerful abstractions, such as map, filter, and accumulate. Unfortunately, representing sequences as lists brings forth a severe inefficiency with regards to time and space complexity. When we represent our manipulations on sequences as transformations of lists, our programs must construct and copy data structures at every step of the process. 
 
 To see why this is true, let us compare two programs for computing the sum of all the prime numbers in an interval.
@@ -76,6 +85,10 @@ First, in an imperative style:
 (sum-primes 1 5)
 #+END_SRC
 
+#+RESULTS:
+11
+11
+
 And with the sequence operations: 
 
 #+BEGIN_SRC scheme
@@ -87,6 +100,10 @@ And with the sequence operations:
 (sum-primes 1 5)
 #+END_SRC
 
+#+RESULTS:
+11
+11
+
 In our first function, our overhead is essentially the local state variables. In the second function, before filter can even begin to look at whether a term is prime or not, enumerate-interval needs to create a list containing all of the possible values. 
 
 Streams are a clever idea that allows one to use sequence manipulations without incurring the costs of manipulating sequences as lists. We can formulate programs elegantly as sequence manipulations, while attaining the efficiency of incremental computation. The basic idea is to arrange to construct a stream only partially, and to pass the partial construction to the program that consumes the stream. If the consumer attempts to access a part of the stream that has not yet been constructed, the stream will automatically construct just enough more of itself to produce the required part, thus preserving the illusion that the entire stream exists. 
@@ -97,6 +114,8 @@ On the surface, streams are just lists with different names for the procedures t
 (stream-car (cons-stream x y))
 (stream-cdr (cons-stream x y))
 #+END_SRC
+
+#+RESULTS:
 
 #+BEGIN_SRC scheme
 (define (stream-ref s n)
@@ -124,6 +143,9 @@ On the surface, streams are just lists with different names for the procedures t
   (display x))
 #+END_SRC
 
+#+RESULTS:
+#[constant 40 #x2]
+
 To make the stream implementation automatically and transparently interleave the construction of a stream with its use, we will arrange for the cdr of a stream to be evaluated when it is accessed by the stream-cdr procedure rather than when the stream is constructed by cons-stream. 
 
 As a data abstraction, streams are the same as lists. The difference is the time at which the elements are evaluted -- for lists both car and cdr are evaluated at construction time, whereas with streams the cdr is evaluated at selection time. 
@@ -142,6 +164,9 @@ This means we will construct streams using pairs. Rather than placing the value 
 (define (stream-cdr stream)
   (force (cdr stream)))
 #+END_SRC
+
+#+RESULTS:
+#[constant 40 #x2]
 
 ** The Stream Implementation in Action
 
@@ -162,6 +187,9 @@ Let us analyze the outrageous prime computations reformulated in terms of stream
 (cons 10000 (delay (stream-enumerate-interval 10001 1000000)))
 #+END_SRC
 
+#+RESULTS:
+(10000 . #[promise 41])
+
 
 #+BEGIN_SRC scheme
 (define (stream-filter pred stream)
@@ -177,6 +205,9 @@ Let us analyze the outrageous prime computations reformulated in terms of stream
                             (cons 10008
                                   (delay (stream-enumerate-interval 100009 1000000))))))
 #+END_SRC
+
+#+RESULTS:
+(10007 . #[promise 42])
 
 In general, we can think of delayed evaluation as "demand driven" programming, whereby each stage in the stream process is activated only enough to satisfy the next stage. 
 
@@ -202,6 +233,9 @@ In order to stop inefficiency with repeated evaluations of the same delayed obje
           result))))
 #+END_SRC 
 
+#+RESULTS:
+memo-proc
+
 delay is then defined so that (delay exp) is equivalent to 
 
 (memo-proc (lambda () exp))
@@ -221,6 +255,9 @@ Complete the following definition, which generalizes stream-map to allow procedu
               (cons proc (map <??> argstreams))))))
 #+END_SRC
 
+#+RESULTS:
+stream-map
+
 
 #+BEGIN_SRC scheme
 (define (stream-map proc . argstreams)
@@ -232,6 +269,9 @@ Complete the following definition, which generalizes stream-map to allow procedu
               (cons proc (map stream-cdr argstreams))))))
 #+END_SRC
 
+#+RESULTS:
+stream-map
+
 *** Exercise 3.51 
 
 In order to take a closer look at delayed evaluation, we will use the following procedure, which simply returns its argument after printing it: 
@@ -241,6 +281,9 @@ In order to take a closer look at delayed evaluation, we will use the following 
   (display-line x)
   x)
 #+END_SRC
+
+#+RESULTS:
+show
 
 What does the interpreter print in response to evaluating each expression in the following sequence? 
 
@@ -260,11 +303,21 @@ What does the interpreter print in response to evaluating each expression in the
 4
 5
 
+0
+1
+2
+3
+4
+5
+
 #+BEGIN_SRC scheme :results output
 (stream-ref x 7)
 #+END_SRC
 
 #+RESULTS:
+
+6
+7
 
 6
 7
@@ -293,6 +346,17 @@ Consider the sequence of expressions
 (display-stream z)
 #+END_SRC
 
+#+RESULTS:
+
+;The procedure #[compound-procedure 43 stream-for-each] has been called with 1 argument; it requires exactly 2 arguments.
+;To continue, call RESTART with an option number:
+; (RESTART 4) => Return to read-eval-print level 4.
+; (RESTART 3) => Return to read-eval-print level 3.
+; (RESTART 2) => Return to read-eval-print level 2.
+; (RESTART 1) => Return to read-eval-print level 1.
+
+5 error> 
+
 What is the value of sum after each of the above expressions is evaluated?
 
 #+BEGIN_SRC scheme
@@ -301,6 +365,7 @@ sum
 #+END_SRC
 
 #+RESULTS:
+0
 0
 
 #+BEGIN_SRC scheme
@@ -313,6 +378,7 @@ sum
 
 #+RESULTS:
 0
+0
 
 #+BEGIN_SRC scheme
 (define seq
@@ -324,6 +390,7 @@ sum
 
 #+RESULTS:
 1
+1
 
 This happens because we eagerly evaluate the car of a stream. 
 
@@ -333,6 +400,7 @@ sum
 #+END_SRC
 
 #+RESULTS:
+6
 6
 
 Our initial state is a sum of 1. 
@@ -349,6 +417,7 @@ sum
 
 #+RESULTS:
 10
+10
 
 #+BEGIN_SRC scheme
 (stream-ref y 7)
@@ -356,11 +425,14 @@ sum
 
 #+RESULTS:
 136
+136
 
 
 #+BEGIN_SRC scheme
 (display-stream z)
 #+END_SRC
+
+#+RESULTS:
 
 #+RESULTS: 10 
 
@@ -370,4 +442,182 @@ What is the printed response to evaluating the stream-ref and display-stream exp
 Would these responses differ if we had implemented (delay exp) simply as (lambda () exp) without using the optimization provided by memo-proc? explain.
 
 ** Infinite Streams 
+
+We can use streams to represent sequences which are infinitely long. 
+
+#+BEGIN_SRC scheme
+(define (integers-starting-from n)
+  (cons-stream n
+               (integers-starting-from (+ n 1))))
+
+(define integers (integers-starting-from 1))
+
+(define (divisible? x y)
+  (= (remainder x y) 0))
+
+(define no-sevens
+  (stream-filter (lambda (x) (not (divisible? x 7)))
+                 integers))
+
+(stream-ref no-sevens 100)
+#+END_SRC
+
+#+RESULTS:
+117
+
+
+#+BEGIN_SRC scheme
+(define (fibgen a b)
+  (cons-stream a (fibgen b (+ a b))))
+
+(define fibs (fibgen 0 1))
+#+END_SRC
+
+#+RESULTS:
+#[constant 40 #x2]
+
+We can generalize the no-sevens example to construct an infinite stream of prime numbers, using a method known as the sieve of Eratosthenes. 
+
+To sieve a stream S, form a sieve whose first element is the first element of S and the rest of which is obtained by filtering all multiples of the first element of S out of the rest of S and sieving the result. 
+
+#+BEGIN_SRC scheme
+(define (sieve stream)
+  (cons-stream
+   (stream-car stream)
+   (sieve (stream-filter
+           (lambda (x)
+             (not (divisible?
+                   x (stream-car stream))))
+           (stream-cdr stream)))))
+
+(define primes (sieve (integers-starting-from 2)))
+
+(stream-ref primes 500)
+#+END_SRC
+
+#+RESULTS:
+3581
+
+
+** Defining Streams Implicitly 
+
+The integers and fibs streams above were defined by specifying generating procedures that explicitly compute the stream elements one by one. An alternate way to specify streams is to take advantage of delayed evaluation to define streams implicitly. 
+
+#+BEGIN_SRC scheme
+(define ones (cons-stream 1 ones))
+#+END_SRC
+
+#+RESULTS:
+ones
+
+We can do more interesting things by manipulating streams with operations such as add-streams, which produces the elementwise sum of two given streams: 
+
+#+BEGIN_SRC scheme
+(define (add-streams s1 s2)
+  (stream-map + s1 s2))
+
+(define integers (cons-stream 1 (add-streams ones integers)))
+#+END_SRC
+
+#+RESULTS:
+#[constant 40 #x2]
+
+#+BEGIN_SRC scheme
+(define fibs
+  (cons-stream 0
+               (cons-stream 1
+                            (add-streams (stream-cdr fibs) fibs))))
+#+END_SRC
+
+#+RESULTS:
+fibs
+
+scale-stream is also useful for formulating such stream definitions 
+
+#+BEGIN_SRC scheme
+(define (scale-stream stream factor)
+  (stream-map
+   (lambda (x) (* x factor))
+   stream))
+
+(define double
+  (cons-stream 1 (scale-stream double 2)))
+#+END_SRC
+
+#+RESULTS:
+#[constant 40 #x2]
+
+An alternate definition of the stream of primes can be given by starting with the integers and filtering them by testing for primality. 
+
+#+BEGIN_SRC scheme
+(define primes
+  (cons-stream 2
+               (stream-filter prime?
+                              (integers-starting-from 3))))
+
+(define (prime? n)
+  (define (iter ps)
+    (cond ((> (square (stream-car ps)) n) true)
+          ((divisible? n (stream-car ps)) false)
+          (else (iter (stream-cdr ps)))))
+  (iter primes))
+#+END_SRC
+
+#+RESULTS:
+#[constant 40 #x2]
+
+This is a recursive definition, since primes is defined in terms of the prime? predicate, which itself uses the primes stream. The reason this procedure works is that, at any point, enough of the primes stream has been generated to test the primality of the numbers we need to check next. 
+
+That is, for every n we test for primality, either n is not prime (in which case there is a prime already generated that divides it) or n is prime (in which case there is a prime already generated that is less than sqrt(n)) 
+
+
+*** Exercise 3.53 
+
+Without running the program, describe the elements of the stream defined by 
+
+#+BEGIN_SRC scheme
+(define s (cons-stream 1 (add-streams s s)))
+#+END_SRC
+
+#+RESULTS:
+s
+
+1 2 4 8 16 32 64 128 256 ...
+
+log_2 growth 
+
+*** Exercise 3.54 
+
+Define a procedure mul-streams, analogous to add-streams that produces the elementwise product of its two input streams. 
+
+#+BEGIN_SRC scheme
+(define (mul-streams s1 s2)
+  (cons-stream (scale-stream s1 s2)))
+#+END_SRC
+
+#+RESULTS:
+
+Use this together with the stream of integers to complete the following definition of the stream whose nth element (counting from 0) is n + 1 factorial.
+
+#+BEGIN_SRC scheme
+(define factorials (cons-stream 1 (mul-streams (stream-cdr integers) factorials)))
+#+END_SRC
+
+#+RESULTS:
+factorials
+
+*** Exercise 3.55 
+
+Define a procedure partial-sums that takes as argument a stream S and returns the stream whose elements are s0, s0 + s1, s0 + s1 + s2, ...
+
+For example, (partial-sums integers should be the stream 1, 3, 6, 10, 15, ...)
+
+#+BEGIN_SRC scheme
+(define (partial-sums s)
+  (add-streams s (cons-stream 0 (partial-sums s))))
+
+(partial-sums integers)
+#+END_SRC
+
+*** Exercise 3.56 
 
