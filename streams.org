@@ -843,3 +843,288 @@ Given: In other words, X is the power series whose constant term is 1 and whose 
 (define (invert-unit-series s)
   ())
 #+END_SRC
+
+
+** Exploiting the Stream Paradigm 
+
+The stream approach can be illuminating because it allows us to build systems with different module boundaries than systems organized around assignment to state variables. We can think of an entire time series (or signal) as a focus of interest, rather than the value of the state variables at individual moments. This makes it convenient to combine and compare components of state from different moments. 
+
+** Formulating Iterations as Stream Processes 
+
+We now know that we can represent state as a timeless stream of values rather than as a set of variables to be updated. 
+
+Recall that the idea of our early sqrt procedure is to generate a sequence of better and better guesses for the square root of x:
+
+#+BEGIN_SRC scheme
+(define (sqrt-improve guess x)
+  (average guess (/ x guess)))
+#+END_SRC
+
+From chapter 1:
+
+#+BEGIN_SRC scheme
+(define (average x y)
+  (/ (+ x y) 2))
+#+END_SRC
+
+Instead of updated the state variable over and over, we can generate an infinite stream of guesses, starting with an initial guess of 1:
+
+#+BEGIN_SRC scheme :output results
+(define (sqrt-stream x)
+  (define guesses
+    (cons-stream 1.0
+                 (stream-map
+                  (lambda (guess)
+                    (sqrt-improve guess x))
+                  guesses)))
+  guesses)
+
+(display-stream 5 (sqrt-stream 2))
+#+END_SRC
+
+#+RESULTS:
+1.
+1.5
+1.4166666666666665
+1.4142156862745097
+1.4142135623746899
+1.414213562373095
+
+We can generate more and more terms of the stream to get better guesses 
+
+#+BEGIN_SRC scheme
+(display-stream 50 (sqrt-stream 2))
+#+END_SRC
+
+#+RESULTS:
+1.
+1.5
+1.4166666666666665
+1.4142156862745097
+1.4142135623746899
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+1.414213562373095
+
+Another iteration that we can treat the same way is our earlier approximation to pi based on the alternating series for pi / 4.
+
+We first generate the stream of summands of the series, then we take the stream of sums of more and more terms 
+
+#+BEGIN_SRC scheme
+(define (pi-summands n)
+  (cons-stream
+   (/ 1.0 n)
+   (stream-map - (pi-summands (+ n 2)))))
+
+(define pi-stream
+  (scale-stream
+   (partial-sums (pi-summands 1)) 4))
+
+(display-stream 10 pi-stream)
+#+END_SRC
+
+Here is the result after 1000 iterations: 3.1425916543395442
+
+Thus far, our use of the stream of states approach is not much different from updating state variables, but states give us an opportunity to do some interesting tricks. For example, we can transform a stream with a sequence accelerator that converts a sequence of approximations to a new sequence that converges to the same value as the original, only faster. 
+
+One such sequence accelerator, due to Euler, works well with sequences that are partial sums of alternating series. 
+
+#+BEGIN_SRC scheme
+(define (euler-transform s)
+  (let ((s0 (stream-ref s 0))
+        (s1 (stream-ref s 1))
+        (s2 (stream-ref s 2)))
+    (cons-stream
+     (- s2 (/ (square (- s2 s1))
+              (+ s0 (* -2 s1) s2)))
+     (euler-transform (stream-cdr s)))))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(display-stream 50 (euler-transform pi-stream))
+#+END_SRC
+
+Wow! Much quicker convergence
+
+Even better, we can accelerate the accelerated sequence, and recursively accelerate that, and so on. We can create a stream of streams (a structure we call a tableau) in which each stream is the transform of the preceding ones
+
+#+BEGIN_SRC scheme
+(define (make-tableau transform s)
+  (cons-stream s
+               (make-tableau transform (transform s))))
+#+END_SRC
+
+Finally, we form a sequence by taking the first term in each row of the tableau: 
+
+#+BEGIN_SRC scheme :results output
+(define (accelerated-sequence transform s)
+  (stream-map stream-car (make-tableau transform s)))
+
+(display-stream 10 (accelerated-sequence euler-transform pi-stream))
+#+END_SRC
+
+4.
+3.166666666666667
+3.142105263157895
+3.141599357319005
+3.1415927140337785
+3.1415926539752927
+3.1415926535911765
+3.141592653589778
+3.1415926535897953
+3.141592653589795
+
+*** Exercise 3.63 
+
+Louis Reasoner asks why the sqrt-stream procedure wasn't written in the following way: 
+
+#+BEGIN_SRC scheme
+(define (sqrt-stream x)
+  (cons-stream 1.0
+               (stream-map (lambda (guess)
+                             (sqrt-improve guess x))
+                           (sqrt-stream x))))
+#+END_SRC
+
+Alyssa P Hacker replies that this version of the procedure is less efficient because it performs redundant computation. Explain her answer
+
+*** Exercise 3.64 
+
+Write a procedure stream-limit that takes as arguments a stream and a number (the tolerance). It should examine the stream until it finds two successive elements that differ in absolute value by less than the tolerance, and return the second of the two elements. 
+
+#+BEGIN_SRC scheme
+(define (s-val s n)
+  (stream-ref s n))
+
+(define (stream-limit s tol)
+  (if (< (abs (- (s-val s 0)
+                 (s-val s 1)))
+         tol)
+      (s-val s 1)
+      (stream-limit (stream-cdr s) tol)))
+#+END_SRC
+
+Using this we could compute 
+
+#+BEGIN_SRC scheme
+(define (sqrt x tolerance)
+  (stream-limit (sqrt-stream x) tolerance))
+
+(sqrt 2 0.00001)
+#+END_SRC
+
+*** Exercise 3.65 
+
+Use the series 
+
+ln 2 = 1 - 1/2 + 1/3 - 1/4 + ...
+
+to compute 3 sequences of approximations to the natural log of 2, in the same way we did about for pi.
+
+#+BEGIN_SRC scheme
+(define (pi-summands n)
+  (cons-stream
+   (/ 1.0 n)
+   (stream-map - (pi-summands (+ n 2)))))
+
+(define pi-stream
+  (scale-stream
+   (partial-sums (pi-summands 1)) 4))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(define (ln2-summands n)
+  (cons-stream (/ 1.0 n)
+               (stream-map - (ln2-summands (+ n 1)))))
+
+(define ln2-stream
+  (partial-sums (ln2-summands 1)))
+
+(display-stream 10 ln2-stream)
+#+END_SRC
+
+This takes a lot of iterations to converge. Even after 100 there is still a lot of error.
+
+Now to accelerate it.
+
+#+BEGIN_SRC scheme
+(display-stream 10 (accelerated-sequence euler-transform ln2-stream))
+#+END_SRC
+
+This method converges within 10 steps, and looks great by the 3rd step 
+
+** Infinite Streams of Pairs 
+
+If we generalize this technique to infinite streams, then we can write programs that are not easily represented as loops, because the looping must range over an infinite set. 
+
+Suppose we want to generalize the prime-sum-pairs procedure to produce the stream of pairs of all integers (i, j) such that i + j is prime. 
+
+If int-pairs is the sequence of all pairs of integers (i, j) with i leq j, then our required stream is simply:
+
+#+BEGIN_SRC scheme
+(stream-filter
+ (lambda (pair)
+   (prime? (+ (car pair)
+              (cadr pair))))
+ int-pairs)
+#+END_SRC
+
+our problem, then, is to produce the stream int-pairs.
+
+We can form a stream of pairs as follows:
+
+#+BEGIN_SRC scheme
+(define (pairs s t)
+  (cons-stream
+   (list (stream-car s)
+         (stream-car t))
+   (combine-in-some-way
+    (stream-map (lambda (x)
+                  (list (stream-car s) x))
+                (stream-cdr t))
+    (pairs (stream-cdr s)
+           (stream-cdr t)))))
+#+END_SRC
