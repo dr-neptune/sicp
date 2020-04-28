@@ -34,7 +34,6 @@ Stream processing allows us to model systems that have state without ever using 
 
 #+RESULTS:
 #t
-#t
 
 #+BEGIN_SRC scheme
 (define (filter predicate sequence)
@@ -64,7 +63,7 @@ Stream processing allows us to model systems that have state without ever using 
 
 #+RESULTS:
 (2 3 4 5 6 7)
-(2 3 4 5 6 7)
+
 
 Sequences as standard interfaces for combining program modules allow us some very powerful abstractions, such as map, filter, and accumulate. Unfortunately, representing sequences as lists brings forth a severe inefficiency with regards to time and space complexity. When we represent our manipulations on sequences as transformations of lists, our programs must construct and copy data structures at every step of the process. 
 
@@ -88,6 +87,7 @@ First, in an imperative style:
 #+RESULTS:
 11
 11
+11
 
 And with the sequence operations: 
 
@@ -101,6 +101,7 @@ And with the sequence operations:
 #+END_SRC
 
 #+RESULTS:
+11
 11
 11
 
@@ -145,6 +146,7 @@ On the surface, streams are just lists with different names for the procedures t
 
 #+RESULTS:
 #[constant 40 #x2]
+#[constant 40 #x2]
 
 To make the stream implementation automatically and transparently interleave the construction of a stream with its use, we will arrange for the cdr of a stream to be evaluated when it is accessed by the stream-cdr procedure rather than when the stream is constructed by cons-stream. 
 
@@ -166,6 +168,7 @@ This means we will construct streams using pairs. Rather than placing the value 
 #+END_SRC
 
 #+RESULTS:
+#[constant 40 #x2]
 #[constant 40 #x2]
 
 ** The Stream Implementation in Action
@@ -189,6 +192,7 @@ Let us analyze the outrageous prime computations reformulated in terms of stream
 
 #+RESULTS:
 (10000 . #[promise 41])
+(10000 . #[promise 41])
 
 
 #+BEGIN_SRC scheme
@@ -207,6 +211,7 @@ Let us analyze the outrageous prime computations reformulated in terms of stream
 #+END_SRC
 
 #+RESULTS:
+(10007 . #[promise 42])
 (10007 . #[promise 42])
 
 In general, we can think of delayed evaluation as "demand driven" programming, whereby each stage in the stream process is activated only enough to satisfy the next stage. 
@@ -235,6 +240,7 @@ In order to stop inefficiency with repeated evaluations of the same delayed obje
 
 #+RESULTS:
 memo-proc
+memo-proc
 
 delay is then defined so that (delay exp) is equivalent to 
 
@@ -257,6 +263,7 @@ Complete the following definition, which generalizes stream-map to allow procedu
 
 #+RESULTS:
 stream-map
+stream-map
 
 
 #+BEGIN_SRC scheme
@@ -271,6 +278,7 @@ stream-map
 
 #+RESULTS:
 stream-map
+stream-map
 
 *** Exercise 3.51 
 
@@ -283,6 +291,7 @@ In order to take a closer look at delayed evaluation, we will use the following 
 #+END_SRC
 
 #+RESULTS:
+show
 show
 
 What does the interpreter print in response to evaluating each expression in the following sequence? 
@@ -310,11 +319,21 @@ What does the interpreter print in response to evaluating each expression in the
 4
 5
 
+0
+1
+2
+3
+4
+5
+
 #+BEGIN_SRC scheme :results output
 (stream-ref x 7)
 #+END_SRC
 
 #+RESULTS:
+
+6
+7
 
 6
 7
@@ -357,6 +376,15 @@ Consider the sequence of expressions
 
 5 error> 
 
+;The procedure #[compound-procedure 43 stream-for-each] has been called with 1 argument; it requires exactly 2 arguments.
+;To continue, call RESTART with an option number:
+; (RESTART 4) => Return to read-eval-print level 4.
+; (RESTART 3) => Return to read-eval-print level 3.
+; (RESTART 2) => Return to read-eval-print level 2.
+; (RESTART 1) => Return to read-eval-print level 1.
+
+5 error> 
+
 What is the value of sum after each of the above expressions is evaluated?
 
 #+BEGIN_SRC scheme
@@ -365,6 +393,7 @@ sum
 #+END_SRC
 
 #+RESULTS:
+0
 0
 0
 
@@ -379,6 +408,7 @@ sum
 #+RESULTS:
 0
 0
+0
 
 #+BEGIN_SRC scheme
 (define seq
@@ -391,6 +421,7 @@ sum
 #+RESULTS:
 1
 1
+1
 
 This happens because we eagerly evaluate the car of a stream. 
 
@@ -400,6 +431,7 @@ sum
 #+END_SRC
 
 #+RESULTS:
+6
 6
 6
 
@@ -418,12 +450,14 @@ sum
 #+RESULTS:
 10
 10
+10
 
 #+BEGIN_SRC scheme
 (stream-ref y 7)
 #+END_SRC
 
 #+RESULTS:
+136
 136
 136
 
@@ -464,6 +498,7 @@ We can use streams to represent sequences which are infinitely long.
 
 #+RESULTS:
 117
+117
 
 
 #+BEGIN_SRC scheme
@@ -474,6 +509,7 @@ We can use streams to represent sequences which are infinitely long.
 #+END_SRC
 
 #+RESULTS:
+#[constant 40 #x2]
 #[constant 40 #x2]
 
 We can generalize the no-sevens example to construct an infinite stream of prime numbers, using a method known as the sieve of Eratosthenes. 
@@ -497,6 +533,7 @@ To sieve a stream S, form a sieve whose first element is the first element of S 
 
 #+RESULTS:
 3581
+3581
 
 
 ** Defining Streams Implicitly 
@@ -508,6 +545,7 @@ The integers and fibs streams above were defined by specifying generating proced
 #+END_SRC
 
 #+RESULTS:
+ones
 ones
 
 We can do more interesting things by manipulating streams with operations such as add-streams, which produces the elementwise sum of two given streams: 
@@ -521,6 +559,7 @@ We can do more interesting things by manipulating streams with operations such a
 
 #+RESULTS:
 #[constant 40 #x2]
+#[constant 40 #x2]
 
 #+BEGIN_SRC scheme
 (define fibs
@@ -530,6 +569,7 @@ We can do more interesting things by manipulating streams with operations such a
 #+END_SRC
 
 #+RESULTS:
+fibs
 fibs
 
 scale-stream is also useful for formulating such stream definitions 
@@ -545,6 +585,7 @@ scale-stream is also useful for formulating such stream definitions
 #+END_SRC
 
 #+RESULTS:
+#[constant 40 #x2]
 #[constant 40 #x2]
 
 An alternate definition of the stream of primes can be given by starting with the integers and filtering them by testing for primality. 
@@ -565,6 +606,7 @@ An alternate definition of the stream of primes can be given by starting with th
 
 #+RESULTS:
 #[constant 40 #x2]
+#[constant 40 #x2]
 
 This is a recursive definition, since primes is defined in terms of the prime? predicate, which itself uses the primes stream. The reason this procedure works is that, at any point, enough of the primes stream has been generated to test the primality of the numbers we need to check next. 
 
@@ -580,6 +622,7 @@ Without running the program, describe the elements of the stream defined by
 #+END_SRC
 
 #+RESULTS:
+s
 s
 
 1 2 4 8 16 32 64 128 256 ...
@@ -605,6 +648,7 @@ Use this together with the stream of integers to complete the following definiti
 
 #+RESULTS:
 factorials
+factorials
 
 *** Exercise 3.55 
 
@@ -620,4 +664,133 @@ For example, (partial-sums integers should be the stream 1, 3, 6, 10, 15, ...)
 #+END_SRC
 
 *** Exercise 3.56 
+
+A famous problem raised by R. Hamming is to enumerate, in ascending order with no repetitions, all positive integers with no prime factos other than 2, 3, or 5. 
+
+Let us recall the required stream of numbers S and notice the following facts about it:
+- S begins with 1
+- the elements of (scale-stream S 2) are also elements of S
+- The same is true for (scale-stream S 3) and (scale-stream S 5)
+- These are all the elements of S
+
+
+Now all we have to do is combine elements from these sources. This procedure merge combines two ordered streams into one ordered result stream, eliminating repetitions.
+
+#+BEGIN_SRC scheme
+(define (merge s1 s2)
+  (cond ((stream-null? s1) s2)
+        ((stream-null? s2) s1)
+        (else
+         (let ((s1car (stream-car s1))
+               (s2car (stream-car s2)))
+           (cond ((< s1car s2car)
+                  (cons-stream s1car
+                               (merge (stream-cdr s1)
+                                      s2)))
+                 ((> s1car s2car)
+                  (cons-stream s2car
+                               (merge s1
+                                      (stream-cdr s2))))
+                 (else
+                  (cons-stream s1car
+                               (merge (stream-cdr s1)
+                                      (stream-cdr s2)))))))))
+#+END_SRC
+
+Then the required stream can be constructed with merge as follows:
+
+#+BEGIN_SRC scheme
+(define S (cons-stream 1 (merge (scale-stream S 2) (merge (scale-stream S 3) (scale-stream S 5)))))
+#+END_SRC
+
+*** Exercise 3.57
+
+How many additions are performed when we compute the nth fibonacci number using the definition of fibs based on the add-streams procedure? 
+
+As a reminder, here is the fibs defined with add-streams:
+
+#+BEGIN_SRC scheme
+(define fibs
+  (cons-stream 0
+               (cons-stream 1
+                            (add-streams (stream-cdr fibs) fibs))))
+#+END_SRC
+
+For the first recursion, we add 1 and 0 to get 1
+then 1 and 1 to get 2 
+then 1 and 2 to get 3 
+then 2 and 3 to get 5 
+
+At every iteration we are performing only one addition. Thus the nth fibonacci number will perform n additions. 
+
+Show that the number of additions would have been exponentially greater if we had implemented (delay exp) simply as (lambda () exp), without using the optimization provided by the memo-proc procedure.
+
+This memoized version of fib allows us to add numbers in O(n) time. If we didn't have the memoization, each call back would have to reperform all the previous results. We would be left with a time complexity of A(n) = A(n - 1) + A(n - 2), which is the Fibonacci recurrence relation and comes out to O(phi^n).
+
+*** Exercise 3.58 
+
+Give an interpretation of the stream computed by the following procedure: 
+
+#+BEGIN_SRC scheme
+(define (expand num den radix)
+  (cons-stream
+   (quotient (* num radix)
+             den)
+   (expand (remainder (* num radix) den)
+           den
+           radix)))
+#+END_SRC
+
+Quotient is a primitive that returns the integer quotient of two integers. 
+
+Interpretation: 
+
+The first element is multiplied by the radix value and then integer divides with quotient. 
+The cdr of the stream is the remainder of this value
+
+This stream multiplies each value by a constant, then returns the integer quotient and the remainder after. 
+
+What are the successive elements produced by (expand 1 7 10)?
+
+#+BEGIN_SRC scheme
+(expand 1 7 10)
+#+END_SRC
+
+1 4 2 8 5 7
+
+10 // 7 == 1 
+(expand 3 7 10)
+30 // 7 == 4 
+(expand 2 7 10)
+20 // 7 == 2 
+(expand 6 7 10)
+60 // 7 == 8 
+... 
+
+What about (expand 3 8 10)? 
+
+1 7 5 0 0 0 ... 0 0 0 
+
+This is the result of the floating point integer with the base being radix. 
+
+*** Exercise 3.59
+
+1. Define a procedure integrate-series that takes as input a stream a0 a1 a2 ... and returns a stream a0 1/2 a1, 1/3 a2, ... of coefficients of the non-constant terms of the integral of the series. 
+
+#+BEGIN_SRC scheme
+(define (integrate-series S)
+  (stream-map / S integers))
+#+END_SRC
+
+2. Show how to generate the series for sine and cosine, starting from the facts that the derivative of sine is cosine and the derivative of cosine is -cosine. 
+
+#+BEGIN_SRC scheme
+(define exp-series
+  (cons-stream 1 (integrate-series exp-series)))
+
+(define cosine-series (cons-stream 1 (integrate-series (scale-stream sine-series -1))))
+(define sine-series (cons-stream 0 (integrate-series cosine-series)))
+#+END_SRC
+
+*** Exercise 3.60 
 
