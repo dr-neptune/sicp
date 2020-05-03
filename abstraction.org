@@ -24,9 +24,6 @@ Consider the idea of forming a linear combination $ax + by$. This is straight fo
 (linear-combination 1 2 3 4)
 #+END_SRC
 
-#+RESULTS:
-: 11
-
 Suppose we would like to express the idea that one can form linear combinations whenever addition and multiplication are defined -- for rational numbers, complex numbers, polynomials, whatever.
 
 #+BEGIN_SRC scheme
