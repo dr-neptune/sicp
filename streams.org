@@ -98,7 +98,6 @@ On the surface, streams are just lists with different names for the procedures t
 (stream-car (cons-stream x y))
 (stream-cdr (cons-stream x y))
 #+END_SRC
-
 #+BEGIN_SRC scheme
 (define (stream-ref s n)
   (if (= n 0)
@@ -250,10 +249,18 @@ What does the interpreter print in response to evaluating each expression in the
 
 (stream-ref x 5)
 #+END_SRC
+0
+1
+2
+3
+4
+5
 
 #+BEGIN_SRC scheme :results output
 (stream-ref x 7)
 #+END_SRC
+6
+7
 
 *** Exercise 3.52
 
@@ -278,6 +285,14 @@ Consider the sequence of expressions
 (stream-ref y 7)
 (display-stream z)
 #+END_SRC
+;The procedure #[compound-procedure 43 stream-for-each] has been called with 1 argument; it requires exactly 2 arguments.
+;To continue, call RESTART with an option number:
+; (RESTART 4) => Return to read-eval-print level 4.
+; (RESTART 3) => Return to read-eval-print level 3.
+; (RESTART 2) => Return to read-eval-print level 2.
+; (RESTART 1) => Return to read-eval-print level 1.
+
+5 error> 
 
 What is the value of sum after each of the above expressions is evaluated?
 
@@ -328,7 +343,6 @@ sum
 #+BEGIN_SRC scheme
 (display-stream z)
 #+END_SRC
-
 What is the printed response to evaluating the stream-ref and display-stream expressions?
 
 Would these responses differ if we had implemented (delay exp) simply as (lambda () exp) without using the optimization provided by memo-proc? explain.
@@ -458,7 +472,6 @@ Define a procedure mul-streams, analogous to add-streams that produces the eleme
 (define (mul-streams s1 s2)
   (cons-stream (scale-stream s1 s2)))
 #+END_SRC
-
 Use this together with the stream of integers to complete the following definition of the stream whose nth element (counting from 0) is n + 1 factorial.
 
 #+BEGIN_SRC scheme
@@ -909,9 +922,6 @@ Now to accelerate it.
 (display-stream 10 (accelerated-sequence euler-transform ln2-stream))
 #+END_SRC
 
-#+RESULTS:
-
-
 This method converges within 10 steps, and looks great by the 3rd step 
 
 ** Infinite Streams of Pairs 
@@ -929,7 +939,6 @@ If int-pairs is the sequence of all pairs of integers (i, j) with i leq j, then 
               (cadr pair))))
  int-pairs)
 #+END_SRC
-
 our problem, then, is to produce the stream int-pairs.
 
 We can form a stream of pairs as follows:
@@ -1131,7 +1140,6 @@ Write a procedure triples that takes three infinite streams, S, T, and U, and pr
 (display-stream 10 (triples integers integers integers))
 
 #+END_SRC
-
 #+BEGIN_SRC scheme
 (define (triples s t u)
   (cons-stream
@@ -1166,7 +1174,6 @@ Use triples to generate the stream of all Pythagorean triples of positive intege
 
 (py-trips trips)
 #+END_SRC
-
 This is a very slow computation. Here are the first 6: 
 
 (3 4 5)
@@ -1233,7 +1240,6 @@ Like let, but evaluates the val-exprs one by one, creating a location for each i
                                                 (stream-cdr s2)
                                                 weight)))))))))
 #+END_SRC
- 
 Using this generalize pairs to produce a procedure weighted-pairs that generates a stream of pairs according to weight. 
 
 #+BEGIN_SRC scheme
@@ -1271,7 +1277,6 @@ Then generate
 
 (display-stream 5 by-sum-filtered)
 #+END_SRC
-
 2. The stream of all pairs of positive integers i, j with i leq j, where neither i nor j is divisible by 2, 3, or 5 and the pairs are ordered according to the sum 2i + 3j + 5ij. 
 
 #+BEGIN_SRC scheme
@@ -1300,7 +1305,6 @@ Then generate
 
 (display-stream 5 cstream)
 #+END_SRC
-
 *** Exercise 3.71 
 
 Numbers that can be expressed at the sum of two cubes in more than one way are sometimes called Ramanujan numbers.
@@ -1309,10 +1313,12 @@ To find a number that can be written as the sum of two cubes in two different wa
 
 #+BEGIN_SRC scheme
 (define (cube-weighted pair)
+  (define (cube x)
+    (* x x x))
   (+ (cube (car pair))
      (cube (cadr pair))))
 
-(define ramanujan-stream
+(define (ramanujan-stream s)
   (let ((scar (stream-car s))
         (scadr (stream-car (stream-cdr s))))
     (if (= (cube-weighted scar)
@@ -1321,10 +1327,135 @@ To find a number that can be written as the sum of two cubes in two different wa
                            scar
                            scadr)
                      (ramanujan-stream (stream-cdr (stream-cdr s))))
-        (ramanujan (stream-cdr s)))))
+        (ramanujan-stream (stream-cdr s)))))
 
 (define ramnum
   (ramanujan-stream (weighted-pairs integers integers cube-weighted)))
 #+END_SRC
 
-not working 
+Woo! The results:
+
+(1729   (9 10) (1 12))
+(4104   (9 15) (2 16))
+(13832 (18 20) (2 24))
+(20683 (19 24) (10 27))
+(32832 (18 30) (4 32))
+(39312 (15 33) (2 34))
+
+*** Exercise 3.72 
+
+In a way similar to 3.71, generate a stream of all numbers that can be written as the sum of two squares in 3 different ways 
+
+#+BEGIN_SRC scheme
+(define (ss-weighted pair)
+  (define (square x)
+    (* x x))
+  (+ (square (car pair))
+     (square (cadr pair))))
+
+(define (ss-stream s)
+  (let ((scar (stream-car s))
+        (scadr (stream-car (stream-cdr s)))
+        (scaddr (stream-car (stream-cdr (stream-cdr s)))))
+    (if (= (ss-weighted scar)
+           (ss-weighted scadr)
+           (ss-weighted scaddr))
+        (cons-stream (list (ss-weighted scar)
+                           scar
+                           scadr
+                           scaddr)
+                     (ss-stream (stream-cdr (stream-cdr s))))
+        (ss-stream (stream-cdr s)))))
+
+(define ss-str-out
+  (ss-stream (weighted-pairs integers integers ss-weighted)))
+#+END_SRC
+
+Very cool: 
+
+(325 (10 15) (1 18) (6 17))
+(425 (13 16) (5 20) (8 19))
+(650 (17 19) (5 25) (11 23))
+(725 (14 23) (7 26) (10 25))
+(845 (19 22) (2 29) (13 26))
+(850 (15 25) (3 29) (11 27))
+
+** Streams as Signals
+
+We can use streams to model signal-processing systems in a very direct way, representing the values of a signal at successive time intervals as consecutive elements of a stream. 
+
+#+BEGIN_SRC scheme
+(define (integral integrand initial-value dt)
+  (define int
+    (cons-stream
+     initial-value
+     (add-streams (scale-stream integrand dt)
+                  int)))
+  int)
+#+END_SRC
+
+*** Exercise 3.73 
+
+Write a procedure RC that models the given circuit 
+
+#+BEGIN_SRC scheme
+(define (RC r c dt)
+  (define (voltages current initial-value)
+    (add-streams
+     (scale-stream current r)
+     (scale-stream (/ 1 c)
+                   (integral current initial-value dt))))
+  voltages)
+#+END_SRC
+
+*** Exercise 3.74 
+
+Complete the equivalent programs:
+
+#+BEGIN_SRC scheme
+(define (make-zero-crossings input-stream last-value)
+  (cons-stream
+   (sign-change-detector
+    (stream-car input-stream)
+    last-value)
+   (make-zero-crossings
+    (stream-cdr input-stream)
+    (stream-car input-stream))))
+
+(define zero-crossings
+  (make-zero-crossings sense-data 0))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(define zero-crossings
+  (stream-map sign-change-detector
+              sense-data
+              <expression>))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(define zero-crossings
+  (stream-map
+   sign-change-detector
+   sense-data
+   (stream-cdr sense-data)))
+#+END_SRC
+
+*** Exercise 3.75 
+
+Louis Reasoner attempts to implement the idea of a smoothed zero-crossing detector. 
+
+#+BEGIN_SRC scheme
+(define (make-zero-crossings input-stream last-value)
+  (let ((avpt (/ (+ (stream-car input-stream)
+                    last-value)
+                 2)))
+    (cons-stream
+     (sign-change-detector avpt last-value)
+     (make-zero-crossings
+      (stream-cdr input-stream) avpt))))
+#+END_SRC
+
+This doesn't work. Find the bug and fix it without changing the structure of the program.
+
+
