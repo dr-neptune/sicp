@@ -1459,3 +1459,33 @@ Louis Reasoner attempts to implement the idea of a smoothed zero-crossing detect
 This doesn't work. Find the bug and fix it without changing the structure of the program.
 
 
+** Streams and Delayed Evaluation 
+
+In general, delay is required to use streams to model signal-processing systems that contain loops. Without delays, our models would have to be formulated so that the inputs to any signal-processing component would be fully evaluated before any output could be produced. This would outlaw loops. 
+
+Sometimes stream models of systems with loops may require use of delay beyond the hidden delay supplied by cons-stream. 
+
+#+BEGIN_SRC scheme
+(define (solve f y0 dt)
+  (define y (integral dy y0 dt))
+  (define dy (stream-map f y))
+  y)
+#+END_SRC
+
+This doesn't work because the first line of solve has a call to integral which requires that the input dy be defined, which doesn't happen until the second line. 
+
+We could use an initial-value. To take advantage of this idea, we can redefine integral to expect the integrand stream to be a delayed argument. Integral will force the integrand to be evaluated only when it is required to generate more than the first element of the output stream. 
+
+#+BEGIN_SRC scheme
+(define (integral delayed-integrand initial-value dt)
+  (define int (cons-stream initial-value
+                           (let ((integrand (force delayed-integrand)))
+                             (add-streams (scale-stream integrand dt)
+                                          int))))
+  int)
+
+(define (solve f y0 dt)
+  (define y (integral (delay dy) y0 dt))
+  (define dy (stream-map f y))
+  y)
+#+END_SRC
