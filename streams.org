@@ -33,6 +33,7 @@ Stream processing allows us to model systems that have state without ever using 
 #+END_SRC
 
 
+
 #+BEGIN_SRC scheme
 (define (filter predicate sequence)
   (cond ((null? sequence) '())
@@ -59,6 +60,7 @@ Stream processing allows us to model systems that have state without ever using 
 (enumerate-interval 2 7)
 #+END_SRC
 
+
 Sequences as standard interfaces for combining program modules allow us some very powerful abstractions, such as map, filter, and accumulate. Unfortunately, representing sequences as lists brings forth a severe inefficiency with regards to time and space complexity. When we represent our manipulations on sequences as transformations of lists, our programs must construct and copy data structures at every step of the process. 
 
 To see why this is true, let us compare two programs for computing the sum of all the prime numbers in an interval.
@@ -78,6 +80,7 @@ First, in an imperative style:
 (sum-primes 1 5)
 #+END_SRC
 
+
 And with the sequence operations: 
 
 #+BEGIN_SRC scheme
@@ -89,6 +92,7 @@ And with the sequence operations:
 (sum-primes 1 5)
 #+END_SRC
 
+
 In our first function, our overhead is essentially the local state variables. In the second function, before filter can even begin to look at whether a term is prime or not, enumerate-interval needs to create a list containing all of the possible values. 
 
 Streams are a clever idea that allows one to use sequence manipulations without incurring the costs of manipulating sequences as lists. We can formulate programs elegantly as sequence manipulations, while attaining the efficiency of incremental computation. The basic idea is to arrange to construct a stream only partially, and to pass the partial construction to the program that consumes the stream. If the consumer attempts to access a part of the stream that has not yet been constructed, the stream will automatically construct just enough more of itself to produce the required part, thus preserving the illusion that the entire stream exists. 
@@ -99,6 +103,7 @@ On the surface, streams are just lists with different names for the procedures t
 (stream-car (cons-stream x y))
 (stream-cdr (cons-stream x y))
 #+END_SRC
+
 #+BEGIN_SRC scheme
 (define (stream-ref s n)
   (if (= n 0)
@@ -125,6 +130,7 @@ On the surface, streams are just lists with different names for the procedures t
   (display x))
 #+END_SRC
 
+
 To make the stream implementation automatically and transparently interleave the construction of a stream with its use, we will arrange for the cdr of a stream to be evaluated when it is accessed by the stream-cdr procedure rather than when the stream is constructed by cons-stream. 
 
 As a data abstraction, streams are the same as lists. The difference is the time at which the elements are evaluted -- for lists both car and cdr are evaluated at construction time, whereas with streams the cdr is evaluated at selection time. 
@@ -143,6 +149,7 @@ This means we will construct streams using pairs. Rather than placing the value 
 (define (stream-cdr stream)
   (force (cdr stream)))
 #+END_SRC
+
 
 ** The Stream Implementation in Action
 
@@ -163,6 +170,7 @@ Let us analyze the outrageous prime computations reformulated in terms of stream
 (cons 10000 (delay (stream-enumerate-interval 10001 1000000)))
 #+END_SRC
 
+
 #+BEGIN_SRC scheme
 (define (stream-filter pred stream)
   (cond ((stream-null? stream) the-empty-stream)
@@ -177,6 +185,7 @@ Let us analyze the outrageous prime computations reformulated in terms of stream
                             (cons 10008
                                   (delay (stream-enumerate-interval 100009 1000000))))))
 #+END_SRC
+
 
 In general, we can think of delayed evaluation as "demand driven" programming, whereby each stage in the stream process is activated only enough to satisfy the next stage. 
 
@@ -202,6 +211,7 @@ In order to stop inefficiency with repeated evaluations of the same delayed obje
           result))))
 #+END_SRC 
 
+
 delay is then defined so that (delay exp) is equivalent to 
 
 (memo-proc (lambda () exp))
@@ -222,6 +232,7 @@ Complete the following definition, which generalizes stream-map to allow procedu
 #+END_SRC
 
 
+
 #+BEGIN_SRC scheme
 (define (stream-map proc . argstreams)
   (if (stream-null? (car argstreams))
@@ -231,6 +242,7 @@ Complete the following definition, which generalizes stream-map to allow procedu
        (apply stream-map
               (cons proc (map stream-cdr argstreams))))))
 #+END_SRC
+
 
 *** Exercise 3.51 
 
@@ -242,6 +254,7 @@ In order to take a closer look at delayed evaluation, we will use the following 
   x)
 #+END_SRC
 
+
 What does the interpreter print in response to evaluating each expression in the following sequence? 
 
 #+BEGIN_SRC scheme :results output
@@ -250,6 +263,14 @@ What does the interpreter print in response to evaluating each expression in the
 
 (stream-ref x 5)
 #+END_SRC
+
+0
+1
+2
+3
+4
+5
+
 0
 1
 2
@@ -267,6 +288,10 @@ What does the interpreter print in response to evaluating each expression in the
 #+BEGIN_SRC scheme :results output
 (stream-ref x 7)
 #+END_SRC
+
+6
+7
+
 6
 7
 
@@ -296,6 +321,16 @@ Consider the sequence of expressions
 (stream-ref y 7)
 (display-stream z)
 #+END_SRC
+
+;The procedure #[compound-procedure 43 stream-for-each] has been called with 1 argument; it requires exactly 2 arguments.
+;To continue, call RESTART with an option number:
+; (RESTART 4) => Return to read-eval-print level 4.
+; (RESTART 3) => Return to read-eval-print level 3.
+; (RESTART 2) => Return to read-eval-print level 2.
+; (RESTART 1) => Return to read-eval-print level 1.
+
+5 error> 
+
 ;The procedure #[compound-procedure 39 stream-for-each] has been called with 1 argument; it requires exactly 2 arguments.
 ;To continue, call RESTART with an option number:
 ; (RESTART 3) => Return to read-eval-print level 3.
@@ -320,6 +355,7 @@ What is the value of sum after each of the above expressions is evaluated?
 sum
 #+END_SRC
 
+
 #+BEGIN_SRC scheme
 (define (accum x)
   (set! sum (+ x sum))
@@ -327,6 +363,7 @@ sum
 
 sum
 #+END_SRC
+
 
 #+BEGIN_SRC scheme
 (define seq
@@ -336,12 +373,14 @@ sum
 sum
 #+END_SRC
 
+
 This happens because we eagerly evaluate the car of a stream. 
 
 #+BEGIN_SRC scheme
 (define y (stream-filter even? seq))
 sum
 #+END_SRC
+
 
 Our initial state is a sum of 1. 
 
@@ -355,13 +394,16 @@ Then we ask the stream to filter those elements which are even out
 sum
 #+END_SRC
 
+
 #+BEGIN_SRC scheme
 (stream-ref y 7)
 #+END_SRC
 
+
 #+BEGIN_SRC scheme
 (display-stream z)
 #+END_SRC
+
 What is the printed response to evaluating the stream-ref and display-stream expressions?
 
 Would these responses differ if we had implemented (delay exp) simply as (lambda () exp) without using the optimization provided by memo-proc? explain.
@@ -388,12 +430,14 @@ We can use streams to represent sequences which are infinitely long.
 #+END_SRC
 
 
+
 #+BEGIN_SRC scheme
 (define (fibgen a b)
   (cons-stream a (fibgen b (+ a b))))
 
 (define fibs (fibgen 0 1))
 #+END_SRC
+
 
 We can generalize the no-sevens example to construct an infinite stream of prime numbers, using a method known as the sieve of Eratosthenes. 
 
@@ -414,6 +458,7 @@ To sieve a stream S, form a sieve whose first element is the first element of S 
 (stream-ref primes 500)
 #+END_SRC
 
+
 ** Defining Streams Implicitly 
 
 The integers and fibs streams above were defined by specifying generating procedures that explicitly compute the stream elements one by one. An alternate way to specify streams is to take advantage of delayed evaluation to define streams implicitly. 
@@ -421,6 +466,7 @@ The integers and fibs streams above were defined by specifying generating proced
 #+BEGIN_SRC scheme
 (define ones (cons-stream 1 ones))
 #+END_SRC
+
 
 We can do more interesting things by manipulating streams with operations such as add-streams, which produces the elementwise sum of two given streams: 
 
@@ -431,12 +477,14 @@ We can do more interesting things by manipulating streams with operations such a
 (define integers (cons-stream 1 (add-streams ones integers)))
 #+END_SRC
 
+
 #+BEGIN_SRC scheme
 (define fibs
   (cons-stream 0
                (cons-stream 1
                             (add-streams (stream-cdr fibs) fibs))))
 #+END_SRC
+
 
 scale-stream is also useful for formulating such stream definitions 
 
@@ -449,6 +497,7 @@ scale-stream is also useful for formulating such stream definitions
 (define double
   (cons-stream 1 (scale-stream double 2)))
 #+END_SRC
+
 
 An alternate definition of the stream of primes can be given by starting with the integers and filtering them by testing for primality. 
 
@@ -466,6 +515,7 @@ An alternate definition of the stream of primes can be given by starting with th
   (iter primes))
 #+END_SRC
 
+
 This is a recursive definition, since primes is defined in terms of the prime? predicate, which itself uses the primes stream. The reason this procedure works is that, at any point, enough of the primes stream has been generated to test the primality of the numbers we need to check next. 
 
 That is, for every n we test for primality, either n is not prime (in which case there is a prime already generated that divides it) or n is prime (in which case there is a prime already generated that is less than sqrt(n)) 
@@ -479,6 +529,7 @@ Without running the program, describe the elements of the stream defined by
 (define s (cons-stream 1 (add-streams s s)))
 #+END_SRC
 
+
 1 2 4 8 16 32 64 128 256 ...
 
 log_2 growth 
@@ -491,11 +542,13 @@ Define a procedure mul-streams, analogous to add-streams that produces the eleme
 (define (mul-streams s1 s2)
   (cons-stream (scale-stream s1 s2)))
 #+END_SRC
+
 Use this together with the stream of integers to complete the following definition of the stream whose nth element (counting from 0) is n + 1 factorial.
 
 #+BEGIN_SRC scheme
 (define factorials (cons-stream 1 (mul-streams (stream-cdr integers) factorials)))
 #+END_SRC
+
 
 *** Exercise 3.55 
 
@@ -509,6 +562,7 @@ For example, (partial-sums integers should be the stream 1, 3, 6, 10, 15, ...)
 
 (partial-sums integers)
 #+END_SRC
+
 
 *** Exercise 3.56 
 
@@ -544,11 +598,13 @@ Now all we have to do is combine elements from these sources. This procedure mer
                                       (stream-cdr s2)))))))))
 #+END_SRC
 
+
 Then the required stream can be constructed with merge as follows:
 
 #+BEGIN_SRC scheme
 (define S (cons-stream 1 (merge (scale-stream S 2) (merge (scale-stream S 3) (scale-stream S 5)))))
 #+END_SRC
+
 
 
 *** Exercise 3.57
@@ -563,6 +619,7 @@ As a reminder, here is the fibs defined with add-streams:
                (cons-stream 1
                             (add-streams (stream-cdr fibs) fibs))))
 #+END_SRC
+
 
 For the first recursion, we add 1 and 0 to get 1
 then 1 and 1 to get 2 
@@ -589,6 +646,7 @@ Give an interpretation of the stream computed by the following procedure:
            radix)))
 #+END_SRC
 
+
 Quotient is a primitive that returns the integer quotient of two integers. 
 
 Interpretation: 
@@ -603,6 +661,7 @@ What are the successive elements produced by (expand 1 7 10)?
 #+BEGIN_SRC scheme
 (expand 1 7 10)
 #+END_SRC
+
 
 1 4 2 8 5 7
 
@@ -630,6 +689,7 @@ This is the result of the floating point integer with the base being radix.
   (stream-map / S integers))
 #+END_SRC
 
+
 2. Show how to generate the series for sine and cosine, starting from the facts that the derivative of sine is cosine and the derivative of cosine is -cosine. 
 
 #+BEGIN_SRC scheme
@@ -639,6 +699,7 @@ This is the result of the floating point integer with the base being radix.
 (define cosine-series (cons-stream 1 (integrate-series (scale-stream sine-series -1))))
 (define sine-series (cons-stream 0 (integrate-series cosine-series)))
 #+END_SRC
+
 
 *** Exercise 3.60 
 
@@ -659,6 +720,7 @@ s1 x s2: a0b0 + a0b1 + a0b2 + ... +
                             (mul-series (stream-cdr s1) s2))))
 #+END_SRC
 
+
 #+BEGIN_SRC scheme :results output
 (define (display-stream n s)
   (if (< n 0)
@@ -676,6 +738,19 @@ s1 x s2: a0b0 + a0b1 + a0b2 + ... +
 
  (stream-display trig-identity)
 #+END_SRC
+
+;The object 1, passed as the first argument to car, is not the correct type.
+;To continue, call RESTART with an option number:
+; (RESTART 7) => Return to read-eval-print level 7.
+; (RESTART 6) => Return to read-eval-print level 6.
+; (RESTART 5) => Return to read-eval-print level 5.
+; (RESTART 4) => Return to read-eval-print level 4.
+; (RESTART 3) => Return to read-eval-print level 3.
+; (RESTART 2) => Return to read-eval-print level 2.
+; (RESTART 1) => Return to read-eval-print level 1.
+
+8 error> 
+
 ;The object 1, passed as the first argument to car, is not the correct type.
 ;To continue, call RESTART with an option number:
 ; (RESTART 6) => Return to read-eval-print level 6.
@@ -699,6 +774,7 @@ Given: In other words, X is the power series whose constant term is 1 and whose 
 #+END_SRC
 
 
+
 ** Exploiting the Stream Paradigm 
 
 The stream approach can be illuminating because it allows us to build systems with different module boundaries than systems organized around assignment to state variables. We can think of an entire time series (or signal) as a focus of interest, rather than the value of the state variables at individual moments. This makes it convenient to combine and compare components of state from different moments. 
@@ -714,12 +790,14 @@ Recall that the idea of our early sqrt procedure is to generate a sequence of be
   (average guess (/ x guess)))
 #+END_SRC
 
+
 From chapter 1:
 
 #+BEGIN_SRC scheme
 (define (average x y)
   (/ (+ x y) 2))
 #+END_SRC
+
 
 Instead of updated the state variable over and over, we can generate an infinite stream of guesses, starting with an initial guess of 1:
 
@@ -735,6 +813,8 @@ Instead of updated the state variable over and over, we can generate an infinite
 
 (display-stream 5 (sqrt-stream 2))
 #+END_SRC
+
+
 ()
 ()
 1.5
@@ -748,6 +828,8 @@ We can generate more and more terms of the stream to get better guesses
 #+BEGIN_SRC scheme
 (display-stream 50 (sqrt-stream 2))
 #+END_SRC
+
+
 ()
 ()
 1.5
@@ -817,6 +899,8 @@ We first generate the stream of summands of the series, then we take the stream 
 
 (display-stream 10 pi-stream)
 #+END_SRC
+
+
 Here is the result after 1000 iterations: 3.1425916543395442
 
 Thus far, our use of the stream of states approach is not much different from updating state variables, but states give us an opportunity to do some interesting tricks. For example, we can transform a stream with a sequence accelerator that converts a sequence of approximations to a new sequence that converges to the same value as the original, only faster. 
@@ -835,9 +919,12 @@ One such sequence accelerator, due to Euler, works well with sequences that are 
 #+END_SRC
 
 
+
 #+BEGIN_SRC scheme
 (display-stream 50 (euler-transform pi-stream))
 #+END_SRC
+
+
 Wow! Much quicker convergence
 
 Even better, we can accelerate the accelerated sequence, and recursively accelerate that, and so on. We can create a stream of streams (a structure we call a tableau) in which each stream is the transform of the preceding ones
@@ -848,6 +935,7 @@ Even better, we can accelerate the accelerated sequence, and recursively acceler
                (make-tableau transform (transform s))))
 #+END_SRC
 
+
 Finally, we form a sequence by taking the first term in each row of the tableau: 
 
 #+BEGIN_SRC scheme :results output
@@ -856,6 +944,20 @@ Finally, we form a sequence by taking the first term in each row of the tableau:
 
 (display-stream 10 (accelerated-sequence euler-transform pi-stream))
 #+END_SRC
+
+;Invalid floating-point operation
+;To continue, call RESTART with an option number:
+; (RESTART 8) => Return to read-eval-print level 8.
+; (RESTART 7) => Return to read-eval-print level 7.
+; (RESTART 6) => Return to read-eval-print level 6.
+; (RESTART 5) => Return to read-eval-print level 5.
+; (RESTART 4) => Return to read-eval-print level 4.
+; (RESTART 3) => Return to read-eval-print level 3.
+; (RESTART 2) => Return to read-eval-print level 2.
+; (RESTART 1) => Return to read-eval-print level 1.
+
+9 error> 
+
 ;Invalid floating-point operation
 ;To continue, call RESTART with an option number:
 ; (RESTART 7) => Return to read-eval-print level 7.
@@ -891,6 +993,7 @@ Louis Reasoner asks why the sqrt-stream procedure wasn't written in the followin
                            (sqrt-stream x))))
 #+END_SRC
 
+
 Alyssa P Hacker replies that this version of the procedure is less efficient because it performs redundant computation. Explain her answer
 
 *** Exercise 3.64 
@@ -909,6 +1012,7 @@ Write a procedure stream-limit that takes as arguments a stream and a number (th
       (stream-limit (stream-cdr s) tol)))
 #+END_SRC
 
+
 Using this we could compute 
 
 #+BEGIN_SRC scheme
@@ -917,6 +1021,7 @@ Using this we could compute
 
 (sqrt 2 0.00001)
 #+END_SRC
+
 
 1.4142135623746899
 
@@ -939,6 +1044,7 @@ to compute 3 sequences of approximations to the natural log of 2, in the same wa
    (partial-sums (pi-summands 1)) 4))
 #+END_SRC
 
+
 #+BEGIN_SRC scheme
 (define (ln2-summands n)
   (cons-stream (/ 1.0 n)
@@ -949,6 +1055,8 @@ to compute 3 sequences of approximations to the natural log of 2, in the same wa
 
 (display-stream 10 ln2-stream)
 #+END_SRC
+
+
 This takes a lot of iterations to converge. Even after 100 there is still a lot of error.
 
 Now to accelerate it.
@@ -956,6 +1064,7 @@ Now to accelerate it.
 #+BEGIN_SRC scheme
 (display-stream 10 (accelerated-sequence euler-transform ln2-stream))
 #+END_SRC
+
 This method converges within 10 steps, and looks great by the 3rd step 
 
 ** Infinite Streams of Pairs 
@@ -973,6 +1082,7 @@ If int-pairs is the sequence of all pairs of integers (i, j) with i leq j, then 
               (cadr pair))))
  int-pairs)
 #+END_SRC
+
 our problem, then, is to produce the stream int-pairs.
 
 We can form a stream of pairs as follows:
@@ -992,6 +1102,7 @@ We can form a stream of pairs as follows:
 
 
 
+
 In order to complete the procedure, we must choose some way to combine the two inner streams 
 
 #+BEGIN_SRC scheme
@@ -1004,6 +1115,7 @@ In order to complete the procedure, we must choose some way to combine the two i
 #+END_SRC
 
 
+
 This isn't suitable for infinite streams because it takes all the elements from the first stream before incorporating the second stream. To handle infinite streams, we need to devise an order of combination that ensures that every element will eventually be reached if we let our program run long enough
 
 #+BEGIN_SRC scheme
@@ -1014,6 +1126,7 @@ This isn't suitable for infinite streams because it takes all the elements from 
        (stream-car s1)
        (interleave s2 (stream-cdr s1)))))
 #+END_SRC
+
 
 We can thus generate the required stream of pairs as 
 
@@ -1032,6 +1145,7 @@ We can thus generate the required stream of pairs as
 #+END_SRC
 
 
+
 *** Exercise 3.66
 
 Examine the stream (pairs integers integers)
@@ -1039,6 +1153,8 @@ Examine the stream (pairs integers integers)
 #+BEGIN_SRC scheme
 (display-stream 10 (pairs integers integers))
 #+END_SRC
+
+
 (1 1)
 (1 2)
 (2 2)
@@ -1097,6 +1213,7 @@ idea: mix the original with the inverse which shows all pairs with the condition
 
 #+END_SRC
 
+
 #+BEGIN_SRC scheme
 (define (pairs s t)
   (define (pairs-rev s t)
@@ -1113,6 +1230,7 @@ idea: mix the original with the inverse which shows all pairs with the condition
    (pairs s t)
    (pairs-rev s t)))
 #+END_SRC
+
 
 didn't work 
 
@@ -1173,6 +1291,7 @@ Write a procedure triples that takes three infinite streams, S, T, and U, and pr
 (display-stream 10 (triples integers integers integers))
 
 #+END_SRC
+
 #+BEGIN_SRC scheme
 (define (triples s t u)
   (cons-stream
@@ -1187,6 +1306,7 @@ Write a procedure triples that takes three infinite streams, S, T, and U, and pr
              (stream-cdr t)
              (stream-cdr u)))))
 #+END_SRC
+
 
 Use triples to generate the stream of all Pythagorean triples of positive integers.
 
@@ -1207,6 +1327,7 @@ Use triples to generate the stream of all Pythagorean triples of positive intege
 
 (py-trips trips)
 #+END_SRC
+
 This is a very slow computation. Here are the first 6: 
 
 (3 4 5)
@@ -1273,6 +1394,7 @@ Like let, but evaluates the val-exprs one by one, creating a location for each i
                                                 (stream-cdr s2)
                                                 weight)))))))))
 #+END_SRC
+
 Using this generalize pairs to produce a procedure weighted-pairs that generates a stream of pairs according to weight. 
 
 #+BEGIN_SRC scheme
@@ -1298,6 +1420,7 @@ Using this generalize pairs to produce a procedure weighted-pairs that generates
     (weighted-pairs (stream-cdr s1) (stream-cdr s2) weight)
     weight)))
 #+END_SRC
+
 
 Then generate
 
@@ -1428,6 +1551,8 @@ We can use streams to model signal-processing systems in a very direct way, repr
                   int)))
   int)
 #+END_SRC
+
+
 integral
 
 *** Exercise 3.73 
@@ -1443,6 +1568,8 @@ Write a procedure RC that models the given circuit
                    (integral current initial-value dt))))
   voltages)
 #+END_SRC
+
+
 rc
 
 *** Exercise 3.74 
@@ -1492,6 +1619,8 @@ Louis Reasoner attempts to implement the idea of a smoothed zero-crossing detect
      (make-zero-crossings
       (stream-cdr input-stream) avpt))))
 #+END_SRC
+
+
 make-zero-crossings
 
 This doesn't work. Find the bug and fix it without changing the structure of the program.
@@ -1528,11 +1657,11 @@ We could use an initial-value. To take advantage of this idea, we can redefine i
   y)
 #+END_SRC 
 
+
 #+BEGIN_SRC scheme
 (stream-ref (solve (lambda (y) y) 1 0.001) 1000)
 #+END_SRC
 
-#+RESULTS:
 2.716923932235896
 
 *** Exercise 3.77 
@@ -1551,6 +1680,7 @@ The integral procedure above was analogous to the implicit definition of the inf
                  dt))))
 #+END_SRC
 
+
 When used in systems with loops, this procedure has the same problem as does our original version of integral. Modify the procedure so that it expects the integrand as a delayed argument and hence can be used to solve the procedure above.
 
 #+BEGIN_SRC scheme
@@ -1563,6 +1693,7 @@ When used in systems with loops, this procedure has the same problem as does our
                   initial-value)
                dt))))
 #+END_SRC
+
 
 *** Exercise 3.78 
 
@@ -1583,28 +1714,156 @@ Write a procedure solve-2nd that takes as arguments the constants a, b, and dt a
   y)
 #+END_SRC
 
-#+RESULTS:
 solve-2nd
 
 #+BEGIN_SRC scheme
 (stream-ref (solve-2nd 1 0 0.0001 1 1) 10000)
 #+END_SRC
 
-#+RESULTS:
 2.7181459268252266
 
 #+BEGIN_SRC scheme
 (stream-ref (solve-2nd 0 -1 0.0001 1 0) 10472)
 #+END_SRC
 
-#+RESULTS:
 0.5000240628699462
 
 #+BEGIN_SRC scheme
 (stream-ref (solve-2nd 0 -1 0.0001 0 1) 5236)
 #+END_SRC
 
+
 *** Exercise 3.79
 
 Generalize the solve-2nd procedure so that it can be used to solve general second order differential equations d2y/dt2 = f(dy/dt, y)
+
+nah 
+
+** Normal-Order Evaluation 
+
+By using delay and force, we have created two classes of procedures:
+
+- ordinary procedures
+- procedures that take delayed arguments
+
+In general, creating separate classes of procedures forces us to create separate classes of higher-order procedures as well. 
+
+One way to avoid this dilemma is to make all procedures lazily evaluated (called normal order evaluation in chapter 1).
+
+** Modularity of Functional Programs and Modularity of Objects 
+
+One of the major benedits of introducing assignment is that we can increase the modularity of our systems by encapsulating, or hiding, parts of the state of a large system within local variables. Stream models can provide an equivalent modularity without the use of assignment. 
+
+In our monte carlo example, we wished to hide the internal state of a random-number from programs that used the random numbers. 
+
+Here was our initial procedure:
+
+#+BEGIN_SRC scheme
+(define rand
+  (let ((x random-init))
+    (lambda ()
+      (set! x (rand-update x))
+      x)))
+#+END_SRC
+
+Here is a stream formulation: 
+
+#+BEGIN_SRC scheme
+(define random-numbers
+  (cons-stream random-init
+               (stream-map rand-update
+                           random-numbers)))
+#+END_SRC
+
+In this formulation, there are no random numbers per se, just a stream of random numbers produced by successive calls to rand-update.
+
+We can use this to construct the stream of outcomes of the Cesaro experiment performed on consecutive pairs in the random-numbers stream
+
+#+BEGIN_SRC scheme
+(define cesaro-stream
+  (map-successive-pairs
+   (lambda (r1 r2) (= (gcd r1 r2) 1))
+   random-numbers))
+
+(define (map-successive-pairs f s)
+  (cons-stream
+   (f (stream-car s)
+      (stream-car (stream-cdr s)))
+   (map-successive-pairs
+    f (stream-cdr (stream-cdr s)))))
+
+(define (monte-carlo experiment-stream passed failed)
+  (define (next passed failed)
+    (cons-stream
+     (/ passed (+ passed failed))
+     (monte-carlo (stream-cdr experiment-stream) passed failed)))
+  (if (stream-car experiment-stream)
+      (next (+ passed 1) failed)
+      (next passed (+ failed 1))))
+
+(define pi
+  (stream-map
+   (lambda (p) (sqrt (/ 6 p)))
+   (monte-carlo cesaro-stream 0 0)))
+#+END_SRC
+
+The cesaro-stream is fed to the monte carlo procedure which produces a stream of probabilities. The results are converted into a stream of estimates of pi. 
+
+This version of the program doesn't need a parameter telling how many trials to perform, as each point in the stream is a better estimate of pi. There is also considerably more modularity in this approach, because we can formulate a general monte-carlo procedure that can deal with arbitrary experiments without assignment or state.
+
+
+*** Exercise 3.81 
+
+Exercise 3.6 discussed generalizing the RNG to allow one to reset the random-number sequence so as to produce repeastable sequences of random numbers.
+
+Produce a stream formulation of this same generator that operates on an input stream of requests to generate a new random number or to reset the squence to a specified value. Don't use assignment in your solution. 
+
+
+Here is the original solution: 
+
+#+BEGIN_SRC scheme
+(define rand
+  (let ((x random-init))
+    (lambda ()
+      (set! x (rand-update x))
+      x)))
+
+(define (knuth-update x)
+  (let ((a 25)
+        (b 24)
+        (m 123))
+    (modulo (+ (* a x) b) m)))
+
+(define (make-rand)
+  (let ((seed 0))
+    (define (dispatch m)
+      (cond ((eq? m 'reset)
+             (lambda (val) (set! seed val)))
+            ((eq? m 'generate)
+             (begin (set! seed (knuth-update seed))
+                    seed)))))
+  dispatch)
+
+(rand 'generate)
+((rand 'reset) 0)
+(rand 'generate)
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(define (rng message)
+  (define (dispatch m value)
+    (cond ((eq? m 'generate) (knuth-update value))
+          ((and (pair? m)
+                (eq? (car m) 'reset)
+                (number? (cadr m)))
+           (cadr m))
+          (else (error "Invalid Request" m))))
+  (define s
+    (cons-stream 'generate
+                 (stream-map dispatch s message)))
+  s)
+#+END_SRC
+
+** A functional programming view of time 
+
 
