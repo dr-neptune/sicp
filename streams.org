@@ -32,6 +32,7 @@ Stream processing allows us to model systems that have state without ever using 
 (prime? 11)
 #+END_SRC
 
+
 #+BEGIN_SRC scheme
 (define (filter predicate sequence)
   (cond ((null? sequence) '())
@@ -256,9 +257,19 @@ What does the interpreter print in response to evaluating each expression in the
 4
 5
 
+0
+1
+2
+3
+4
+5
+
 #+BEGIN_SRC scheme :results output
 (stream-ref x 7)
 #+END_SRC
+6
+7
+
 6
 7
 
@@ -285,6 +296,14 @@ Consider the sequence of expressions
 (stream-ref y 7)
 (display-stream z)
 #+END_SRC
+;The procedure #[compound-procedure 39 stream-for-each] has been called with 1 argument; it requires exactly 2 arguments.
+;To continue, call RESTART with an option number:
+; (RESTART 3) => Return to read-eval-print level 3.
+; (RESTART 2) => Return to read-eval-print level 2.
+; (RESTART 1) => Return to read-eval-print level 1.
+
+4 error> 
+
 ;The procedure #[compound-procedure 43 stream-for-each] has been called with 1 argument; it requires exactly 2 arguments.
 ;To continue, call RESTART with an option number:
 ; (RESTART 4) => Return to read-eval-print level 4.
@@ -657,6 +676,16 @@ s1 x s2: a0b0 + a0b1 + a0b2 + ... +
 
  (stream-display trig-identity)
 #+END_SRC
+;The object 1, passed as the first argument to car, is not the correct type.
+;To continue, call RESTART with an option number:
+; (RESTART 6) => Return to read-eval-print level 6.
+; (RESTART 5) => Return to read-eval-print level 5.
+; (RESTART 4) => Return to read-eval-print level 4.
+; (RESTART 3) => Return to read-eval-print level 3.
+; (RESTART 2) => Return to read-eval-print level 2.
+; (RESTART 1) => Return to read-eval-print level 1.
+
+7 error> 
 
 *** Exercise 3.61 
 
@@ -706,7 +735,6 @@ Instead of updated the state variable over and over, we can generate an infinite
 
 (display-stream 5 (sqrt-stream 2))
 #+END_SRC
-
 ()
 ()
 1.5
@@ -720,7 +748,6 @@ We can generate more and more terms of the stream to get better guesses
 #+BEGIN_SRC scheme
 (display-stream 50 (sqrt-stream 2))
 #+END_SRC
-
 ()
 ()
 1.5
@@ -790,7 +817,6 @@ We first generate the stream of summands of the series, then we take the stream 
 
 (display-stream 10 pi-stream)
 #+END_SRC
-
 Here is the result after 1000 iterations: 3.1425916543395442
 
 Thus far, our use of the stream of states approach is not much different from updating state variables, but states give us an opportunity to do some interesting tricks. For example, we can transform a stream with a sequence accelerator that converts a sequence of approximations to a new sequence that converges to the same value as the original, only faster. 
@@ -812,7 +838,6 @@ One such sequence accelerator, due to Euler, works well with sequences that are 
 #+BEGIN_SRC scheme
 (display-stream 50 (euler-transform pi-stream))
 #+END_SRC
-
 Wow! Much quicker convergence
 
 Even better, we can accelerate the accelerated sequence, and recursively accelerate that, and so on. We can create a stream of streams (a structure we call a tableau) in which each stream is the transform of the preceding ones
@@ -831,6 +856,17 @@ Finally, we form a sequence by taking the first term in each row of the tableau:
 
 (display-stream 10 (accelerated-sequence euler-transform pi-stream))
 #+END_SRC
+;Invalid floating-point operation
+;To continue, call RESTART with an option number:
+; (RESTART 7) => Return to read-eval-print level 7.
+; (RESTART 6) => Return to read-eval-print level 6.
+; (RESTART 5) => Return to read-eval-print level 5.
+; (RESTART 4) => Return to read-eval-print level 4.
+; (RESTART 3) => Return to read-eval-print level 3.
+; (RESTART 2) => Return to read-eval-print level 2.
+; (RESTART 1) => Return to read-eval-print level 1.
+
+8 error> 
 
 4.
 3.166666666666667
@@ -913,7 +949,6 @@ to compute 3 sequences of approximations to the natural log of 2, in the same wa
 
 (display-stream 10 ln2-stream)
 #+END_SRC
-
 This takes a lot of iterations to converge. Even after 100 there is still a lot of error.
 
 Now to accelerate it.
@@ -921,7 +956,6 @@ Now to accelerate it.
 #+BEGIN_SRC scheme
 (display-stream 10 (accelerated-sequence euler-transform ln2-stream))
 #+END_SRC
-
 This method converges within 10 steps, and looks great by the 3rd step 
 
 ** Infinite Streams of Pairs 
@@ -1005,7 +1039,6 @@ Examine the stream (pairs integers integers)
 #+BEGIN_SRC scheme
 (display-stream 10 (pairs integers integers))
 #+END_SRC
-
 (1 1)
 (1 2)
 (2 2)
@@ -1277,6 +1310,7 @@ Then generate
 
 (display-stream 5 by-sum-filtered)
 #+END_SRC
+
 2. The stream of all pairs of positive integers i, j with i leq j, where neither i nor j is divisible by 2, 3, or 5 and the pairs are ordered according to the sum 2i + 3j + 5ij. 
 
 #+BEGIN_SRC scheme
@@ -1305,6 +1339,7 @@ Then generate
 
 (display-stream 5 cstream)
 #+END_SRC
+
 *** Exercise 3.71 
 
 Numbers that can be expressed at the sum of two cubes in more than one way are sometimes called Ramanujan numbers.
@@ -1393,6 +1428,7 @@ We can use streams to model signal-processing systems in a very direct way, repr
                   int)))
   int)
 #+END_SRC
+integral
 
 *** Exercise 3.73 
 
@@ -1407,6 +1443,7 @@ Write a procedure RC that models the given circuit
                    (integral current initial-value dt))))
   voltages)
 #+END_SRC
+rc
 
 *** Exercise 3.74 
 
@@ -1455,6 +1492,7 @@ Louis Reasoner attempts to implement the idea of a smoothed zero-crossing detect
      (make-zero-crossings
       (stream-cdr input-stream) avpt))))
 #+END_SRC
+make-zero-crossings
 
 This doesn't work. Find the bug and fix it without changing the structure of the program.
 
@@ -1488,4 +1526,85 @@ We could use an initial-value. To take advantage of this idea, we can redefine i
   (define y (integral (delay dy) y0 dt))
   (define dy (stream-map f y))
   y)
+#+END_SRC 
+
+#+BEGIN_SRC scheme
+(stream-ref (solve (lambda (y) y) 1 0.001) 1000)
 #+END_SRC
+
+#+RESULTS:
+2.716923932235896
+
+*** Exercise 3.77 
+
+The integral procedure above was analogous to the implicit definition of the infinite stream of integers in section 3.5.2. Alternatively we could use the following definition: 
+
+#+BEGIN_SRC scheme
+(define (integral integrand initial-value dt)
+  (cons-stream
+   initial-value
+   (if (stream-null? integrand)
+       the-empty-stream
+       (integral (stream-cdr integrand)
+                 (+ (* dt (stream-car integrand))
+                    initial-value)
+                 dt))))
+#+END_SRC
+
+When used in systems with loops, this procedure has the same problem as does our original version of integral. Modify the procedure so that it expects the integrand as a delayed argument and hence can be used to solve the procedure above.
+
+#+BEGIN_SRC scheme
+(define (integral delayed-integrand initial-value dt)
+  (cons-stream
+   initial-value
+   (let ((integrand (force delayed-integrand)))
+     (integral (delay (stream-cdr integrand))
+               (+ (* dt (stream-car integrand))
+                  initial-value)
+               dt))))
+#+END_SRC
+
+*** Exercise 3.78 
+
+Consider the problem of designing a signal-processing system to study the homogenous second-order linear differential equation
+
+d2y / dt2 - a * dy / dt - by = 0
+
+The output stream, modeling y, is generated by a network that contains a loop. This is because the value of d2y / dt2 depends on the values of y and dy/dt and both of these are determined by integrating d2y / dt2. 
+
+Write a procedure solve-2nd that takes as arguments the constants a, b, and dt and the initial values y0 and dy0 for y and dy/dt and generates the stream of successive values of y. 
+
+#+BEGIN_SRC scheme
+(define (solve-2nd a b dt y0 dy0)
+  (define y (integral (delay dy) y0 dt))
+  (define dy (integral (delay ddy) dy0 dt))
+  (define ddy (add-streams (scale-stream dy a)
+                           (scale-stream y b)))
+  y)
+#+END_SRC
+
+#+RESULTS:
+solve-2nd
+
+#+BEGIN_SRC scheme
+(stream-ref (solve-2nd 1 0 0.0001 1 1) 10000)
+#+END_SRC
+
+#+RESULTS:
+2.7181459268252266
+
+#+BEGIN_SRC scheme
+(stream-ref (solve-2nd 0 -1 0.0001 1 0) 10472)
+#+END_SRC
+
+#+RESULTS:
+0.5000240628699462
+
+#+BEGIN_SRC scheme
+(stream-ref (solve-2nd 0 -1 0.0001 0 1) 5236)
+#+END_SRC
+
+*** Exercise 3.79
+
+Generalize the solve-2nd procedure so that it can be used to solve general second order differential equations d2y/dt2 = f(dy/dt, y)
+
