@@ -1,0 +1,123 @@
+* Metalinguistic Abstraction 
+
+Metalinguistic Abstraction -- establishing new languages -- plays an important role in all branches of engineering design. An evaluator (or interpreter) for a programming language is a procedure that, when applied to an expression of the language, performs that actions required to evaluate that expression. 
+
+The evaluator, which determines the meaning of expressions in a programming language, is just another program. 
+
+* Metacircular Evaluator 
+:PROPERTIES:
+:header-args: :session scheme :results verbatim raw
+:ARCHIVE:
+:END:
+
+An evaluator that is written in the same language that it evaluates is said to be metacircular. 
+
+This is essentially a scheme formulation of the environment model of evaluation, which had two parts:
+
+1. To evaluate a combination (a compound expression other than a special form), evaluate the subexpressions and then apply the value of the operator subexpression to the values of the operand subexpressions. 
+2. To apply a compound procedure to a set of arguments, evaluate the body of the procedure in a new environment. To construct this environment, extend the environment part of the procedure object by a frame in which the formal parameters of the procedure are bound to the arguments to whcih the procedure is applied. 
+
+These two rules describe the essence of the evaluation process, a basic cycle in which expressions to be evaluated in environments are reduced to procedures to be applied to arguments, which in turn are reduced to new expressions to be evaluated in new environments, and so on, until we get down to symbols, whose values are looked up in the environment, and to primitive procedures, which are applied directly. 
+
+** The Core of the Evaluator 
+
+The evaluation process can be described as the interplay between two procedures: eval and apply. 
+
+
+*** Eval 
+
+Eval takes as arguments an expression and an environment. It classifies the expression and directs its evaluation. Eval is structured as a case analysis of the syntactic type of the expression to be evaluated. To keep the procedure general, we express the determination of the type of an expression abstractly, making no commitment to any particular representation for the various types of expressions. Each type of expression has a predicate that tests for it and an abstract means for selecting its parts. This abstract syntax makes it easy to see how we can change the syntax of the language by using the same evaluator, but with a different collection of syntax procedures. 
+
+
+**** Primitive Expressions 
+- Numbers 
+- Look up variables in the environment 
+
+**** Special Forms 
+- quoted expressions 
+- assignment
+- if expression
+- lambda expression
+- begin expression
+- case analysis (cond)
+
+**** Combinations 
+
+For a procedure application, eval must recursively evaluate the operator part and the operands of the combination. The resulting procedure and argiments are passed to apply which handles the actual procedure application. 
+
+#+BEGIN_SRC scheme
+(define (eval exp env)
+  (cond ((self-evaluating? exp) exp)
+        ((variable? exp) (lookup-variable-value exp env))
+        ((quoted? exp) (text-of-quotation exp))
+        ((assignment? exp) (eval-assignment exp env))
+        ((definition? exp) (eval-definition exp env))
+        ((if? exp) (eval-if exp env))
+        ((lambda? exp) (make-procedure
+                        (lambda-parameters exp)
+                        (lambda-body exp)) env)
+        ((begin? exp) (eval-sequence (begin-actions exp) env))
+        ((cond? exp) (eval (cond->if exp) env))
+        ((application? exp)
+         (apply (eval (operator exp) env)
+                (list-of-values (operands exp) env)))
+        (else (error "Unknown expression type: EVAL" exp))))
+#+END_SRC
+
+*** Apply 
+
+Apply takes two arguments, a procedure and a list of arguments to which the procedures should be applied. It classifies procedures into two kinds:
+- apply-primitive-procedure for primitives
+- it applies compound procedures by sequentially evaluating the expressions that make up the body of the procedure
+
+The environment for the evaluation of the body of a compound procedure is constructed by extending the base environment carried by the procedure to include a frame that binds the parameters of the prcedure to the arguments to which the procedure is to be applied. 
+
+#+BEGIN_SRC scheme
+(define (apply procedure arguments)
+  (cond ((primitive-procedure? procedure)
+         (apply-primitive-procedure procedure arguments))
+        ((compound-procedure? procedure)
+         (eval-sequence (procedure-body procedure)
+                        (extend-environment
+                         (procedure-parameters procedure)
+                         arguments
+                         (procedure-environment procedure))))
+        (else (error "Unknown procedure type: APPLY" procedure))))
+#+END_SRC
+
+**** Procedure Arguments
+
+When eval processes a procedure application, it uses list-of-values to produce the list of arguments to which the procedure is to be applied. list-of-values takes as an argument the operands of the combination, evaluates each operand and returns a list of the corresponding values: 
+
+#+BEGIN_SRC scheme
+(define (list-of-values exps env)
+  (if (no-operands? exps)
+      '()
+      (cons (eval (first-operand exps) env)
+            (list-of-values
+             (rest-operands exps) env))))
+#+END_SRC
+
+**** Conditionals
+
+eval-if evalutes the predicate part of an if expression in the given environment. If the result is true, eval-if evalutes the consequent, otherwise the alternative. 
+
+#+BEGIN_SRC scheme
+(define (eval-if exp env)
+  (if (true? (eval (if-predicate exp) env))
+      (eval (if-consequent exp) env)
+      (eval (if-alternative exp) env)))
+#+END_SRC
+
+The use of true? in eval-if highlights the issue of the connection between an implemented language and an implementation language. The if-predicate is evaluated in the language being implemented and thus yields a value in that language. The interpreter predicate true? translates that values into a value that can be tested by the if in the implementation language. The metacircular representation of truth might not be the same as that of the underlying Scheme. 
+
+**** Sequences 
+
+eval-sequence is used by apply to evaluate the sequence of expressions in a procedure body and by eval to evaluate the sequence of expressions in a begin expression. It takes as arguments a sequence of expressions and an environment and evaluates the expressions in the order in which they occur. The value returned is the value of the final expression: 
+
+#+BEGIN_SRC scheme
+(define (eval-sequence exps env)
+  (cond ((last-exp? exps) (eval (first-exp exps) env))
+        (else (eval (first-exp exps) env)
+              (eval-sequence (rest-exps exps) env))))
+#+END_SRC
