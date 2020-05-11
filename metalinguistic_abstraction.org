@@ -340,8 +340,37 @@ We can implement cond as a sequence of nested if statements
                      (expand-clauses rest))))))
 #+END_SRC
 
+#+RESULTS:
+
 expressions that we choose to implement as syntactic transformations are called derived expressions. Let expressions are also derived expressions. 
 
 ***** Exercise 4.2 
 
+Louis Reasoner plans to reorder the cond clauses in eval so that the clause for procedure applications appears before the clause for assignments. He argues this will be more efficient, since programs usually contain more applications than assignments, definitions, and so on. 
 
+1. What is wrong with Louis' plan?
+
+If we look at the eval expression: 
+
+#+BEGIN_SRC scheme
+(define (eval exp env)
+  (cond ((self-evaluating? exp) exp)
+        ((variable? exp) (lookup-variable-value exp env))
+        ((quoted? exp) (text-of-quotation exp))
+        ((assignment? exp) (eval-assignment exp env))
+        ((definition? exp) (eval-definition exp env))
+        ((if? exp) (eval-if exp env))
+        ((lambda? exp) (make-procedure
+                        (lambda-parameters exp)
+                        (lambda-body exp)) env)
+        ((begin? exp) (eval-sequence (begin-actions exp) env))
+        ((cond? exp) (eval (cond->if exp) env))
+        ((application? exp)
+         (apply (eval (operator exp) env)
+                (list-of-values (operands exp) env)))
+        (else (error "Unknown expression type: EVAL" exp))))
+#+END_SRC
+
+We see that the application? takes an expression which is implemented as a pair, and from that pulls out the operator and operands, which it then compares in an environment. If we choose to swap the order, the language won't be able to treat the assignment as a special form, and it would then try to eval the operater on the expression. 
+
+For the example (define x 3) we would see 
