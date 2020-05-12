@@ -374,3 +374,95 @@ If we look at the eval expression:
 We see that the application? takes an expression which is implemented as a pair, and from that pulls out the operator and operands, which it then compares in an environment. If we choose to swap the order, the language won't be able to treat the assignment as a special form, and it would then try to eval the operater on the expression. 
 
 For the example (define x 3) we would see 
+
+(application? '(define x 3))
+(apply (eval (operator '(define x 3) env)
+       (list-of-values (operands exp) env)))
+(apply (eval define env)
+       (list-of-values '(x 3) env))
+
+(eval define env) would be problematic, because it would be looking for a definition for define in the env instead of treating it as a special form. 
+
+2. Louis is willing to go to any lengths to make his evaluator recognize procedure applications before it checks most other kinds of expresssions. Help him change the syntax of the evaluated language so that procedure applications start with call.
+
+#+BEGIN_SRC scheme
+(define (call? exp)
+  (tagged-list? exp 'call))
+
+(define (call-operator exp)
+  (cadr exp))
+
+(define (call-operands exp)
+  (cddr exp))
+#+END_SRC
+
+***** Exercise 4.3 
+
+Rewrite eval so that the dispatch is done in data-directed style. 
+
+Here is the original eval: 
+
+#+BEGIN_SRC scheme
+(define (eval exp env)
+  (cond ((self-evaluating? exp) exp)
+        ((variable? exp) (lookup-variable-value exp env))
+        ((quoted? exp) (text-of-quotation exp))
+        ((assignment? exp) (eval-assignment exp env))
+        ((definition? exp) (eval-definition exp env))
+        ((if? exp) (eval-if exp env))
+        ((lambda? exp) (make-procedure
+                        (lambda-parameters exp)
+                        (lambda-body exp)) env)
+        ((begin? exp) (eval-sequence (begin-actions exp) env))
+        ((cond? exp) (eval (cond->if exp) env))
+        ((application? exp)
+         (apply (eval (operator exp) env)
+                (list-of-values (operands exp) env)))
+        (else (error "Unknown expression type: EVAL" exp))))
+#+END_SRC
+
+
+#+BEGIN_SRC scheme
+; table operations
+(define op-table make-table)
+(define get (op-table 'lookup-proc))
+(define put (op-table 'insert-proc))
+
+; eval operations
+(put 'op 'quote text-of-quotation)
+(put 'op 'set! eval-assignment)
+(put 'op 'define eval-definition)
+(put 'op 'if eval-if)
+(put 'op 'lambda (lambda (exp env) (make-procedure (lambda-parameters exp) (lambda-body exp))))
+(put 'op 'begin (lambda (exp env) (eval-sequence (begin-actions exp) env)))
+(put 'op 'cond (lambda (exp env) (eval (cond-if exp) env)))
+#+END_SRC
+
+***** Exercise 4.4 
+
+Install and and or as special forms for the evaluator by defining appropriate syntax procedures and evalution procedures eval-and and eval-or
+
+#+BEGIN_SRC scheme
+; accessors
+(define (and? exp) (tagged-list? exp 'and))
+(define (or? exp) (tagged-list? exp 'or))
+(define (preds exp) (cdr exp))
+(define (first-pred seq) (car seq))
+(define (rest-preds seq) (cdr seq))
+(define (no-pred? seq) (null? seq))
+
+; expressions
+(define (eval-and exp env)
+  (cond ((no-pred? exp) #t)
+        ((not (true? (eval (first-pred exp)))) #f)
+        (else (eval-and (rest-preds exp) env))))
+
+(define (eval-or exp env)
+  (cond ((no-pred? exp) #f)
+        ((true? (eval (first-pred exp))) #t)
+        (else (eval-or (rest-preds exp) env))))
+#+END_SRC
+
+***** Exercise 4.5 
+
+
