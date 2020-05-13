@@ -87,6 +87,9 @@ The environment for the evaluation of the body of a compound procedure is constr
         (else (error "Unknown procedure type: APPLY" procedure))))
 #+END_SRC
 
+#+RESULTS:
+apply
+
 **** Procedure Arguments
 
 When eval processes a procedure application, it uses list-of-values to produce the list of arguments to which the procedure is to be applied. list-of-values takes as an argument the operands of the combination, evaluates each operand and returns a list of the corresponding values: 
@@ -102,6 +105,7 @@ When eval processes a procedure application, it uses list-of-values to produce t
 
 #+RESULTS:
 list-of-values
+list-of-values
 
 **** Conditionals
 
@@ -116,6 +120,7 @@ eval-if evalutes the predicate part of an if expression in the given environment
 
 #+RESULTS:
 eval-if
+eval-if
 
 The use of true? in eval-if highlights the issue of the connection between an implemented language and an implementation language. The if-predicate is evaluated in the language being implemented and thus yields a value in that language. The interpreter predicate true? translates that values into a value that can be tested by the if in the implementation language. The metacircular representation of truth might not be the same as that of the underlying Scheme. 
 
@@ -129,6 +134,9 @@ eval-sequence is used by apply to evaluate the sequence of expressions in a proc
         (else (eval (first-exp exps) env)
               (eval-sequence (rest-exps exps) env))))
 #+END_SRC
+
+#+RESULTS:
+eval-sequence
 
 **** Assignments and Definitions
 
@@ -150,6 +158,9 @@ The following procedure handles assignments to variables
   'ok)
 #+END_SRC
 
+#+RESULTS:
+#[constant 40 #x2]
+
 ***** Exercise 4.1
 
 We cannot tell whether the metacircular evaluator evaluates operands from left to right or from right to left. 
@@ -166,6 +177,9 @@ Here is the original
             (list-of-values
              (rest-operands exps) env))))
 #+END_SRC 
+
+#+RESULTS:
+list-of-values
 
 We need to give proper names to each of the values and then cons them in a way that makes the order explicit 
 
@@ -184,6 +198,9 @@ We need to give proper names to each of the values and then cons them in a way t
              (right (list-of-values (rest-operands exps) env)))
         (cons right left))))
 #+END_SRC
+
+#+RESULTS:
+#[constant 40 #x2]
 
 ** Representing Expressions 
 
@@ -303,11 +320,15 @@ We need to give proper names to each of the values and then cons them in a way t
 (define (rest-operands ops) (cdr ops))
 #+END_SRC
 
+#+RESULTS:
+#[constant 40 #x2]
+
 ** Derived Expressions 
 
 We can implement cond as a sequence of nested if statements 
 
 #+BEGIN_SRC scheme
+
 (define (cond? exp)
   (tagged-list? exp 'cond))
 
@@ -338,9 +359,11 @@ We can implement cond as a sequence of nested if statements
             (make-if (cond-predicate first)
                      (sequence->exp (cond-actions first))
                      (expand-clauses rest))))))
+
 #+END_SRC
 
 #+RESULTS:
+#[constant 40 #x2]
 
 expressions that we choose to implement as syntactic transformations are called derived expressions. Let expressions are also derived expressions. 
 
@@ -371,6 +394,9 @@ If we look at the eval expression:
         (else (error "Unknown expression type: EVAL" exp))))
 #+END_SRC
 
+#+RESULTS:
+eval
+
 We see that the application? takes an expression which is implemented as a pair, and from that pulls out the operator and operands, which it then compares in an environment. If we choose to swap the order, the language won't be able to treat the assignment as a special form, and it would then try to eval the operater on the expression. 
 
 For the example (define x 3) we would see 
@@ -395,6 +421,9 @@ For the example (define x 3) we would see
 (define (call-operands exp)
   (cddr exp))
 #+END_SRC
+
+#+RESULTS:
+#[constant 40 #x2]
 
 ***** Exercise 4.3 
 
@@ -421,6 +450,9 @@ Here is the original eval:
         (else (error "Unknown expression type: EVAL" exp))))
 #+END_SRC
 
+#+RESULTS:
+eval
+
 
 #+BEGIN_SRC scheme
 ; table operations
@@ -437,6 +469,8 @@ Here is the original eval:
 (put 'op 'begin (lambda (exp env) (eval-sequence (begin-actions exp) env)))
 (put 'op 'cond (lambda (exp env) (eval (cond-if exp) env)))
 #+END_SRC
+
+#+RESULTS:
 
 ***** Exercise 4.4 
 
@@ -465,4 +499,78 @@ Install and and or as special forms for the evaluator by defining appropriate sy
 
 ***** Exercise 4.5 
 
+Scheme allows an additional syntax for cond clauses, (<test> => <recipient>). If test is true, then recipient is evaluted.
+
+for example 
+
+#+BEGIN_SRC scheme
+(cond ((assoc 'b '((a 1) (b 2))) => cadr)
+      (else false))
+#+END_SRC
+
+Modify the handling of cond so that it supports this syntax. 
+
+From schemewiki
+
+Here is the original definition of cond: 
+
+#+BEGIN_SRC scheme
+(define (cond? exp)
+  (tagged-list? exp 'cond))
+
+(define (cond-clauses exp)
+  (cdr exp))
+
+(define (cond-else-clause? clause)
+  (eq? (cond-predicate clause) 'else))
+
+(define (cond-predicate clause)
+  (car clause))
+
+(define (cond-actions clause)
+  (cdr clause))
+
+(define (cond->if exp)
+  (expand-clauses (cond-clauses exp)))
+
+(define (expand-clauses clauses)
+  (if (null? clauses)
+      'false ; no else clause
+      (let ((first (car clauses))
+            (rest (cdr clauses)))
+        (if (cond-else-clause? first)
+            (if (null? rest)
+                (sequence->exp (cond-actions first))
+                (error "ELSE clauses isn't last: COND->IF" clauses))
+            (make-if (cond-predicate first)
+                     (sequence->exp (cond-actions first))
+                     (expand-clauses rest))))))
+#+END_SRC
+
+We wish to extend it to handle (<test> => <recipient>).
+
+We need to do the following: 
+- check if the cadr is =>, with cond-actions
+- add the condition for => to our expand clauses function
+
+#+BEGIN_SRC scheme
+(define (expand-clauses clauses)
+  (if (null? clauses)
+      'false ; no else clause
+      (let ((first (car clauses))
+            (rest (cdr clauses)))
+        (if (cond-else-clause? first)
+            (if (null? rest)
+                (sequence->exp (cond-actions first))
+                (error "ELSE clauses isn't last: COND->IF" clauses))
+            (make-if (cond-predicate first)
+                     (sequence->exp (cond-actions first))
+                     (expand-clauses rest))))))
+
+(define (cond-actions clause)
+  (if (eq? '=> (cadr clause)
+           (list (list (caddr clause)
+                       (cond-predicate clause)))
+           (cdr clause))))
+#+END_SRC
 
