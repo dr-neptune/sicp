@@ -106,6 +106,7 @@ When eval processes a procedure application, it uses list-of-values to produce t
 #+RESULTS:
 list-of-values
 list-of-values
+list-of-values
 
 **** Conditionals
 
@@ -119,6 +120,7 @@ eval-if evalutes the predicate part of an if expression in the given environment
 #+END_SRC
 
 #+RESULTS:
+eval-if
 eval-if
 eval-if
 
@@ -136,6 +138,7 @@ eval-sequence is used by apply to evaluate the sequence of expressions in a proc
 #+END_SRC
 
 #+RESULTS:
+eval-sequence
 eval-sequence
 
 **** Assignments and Definitions
@@ -160,6 +163,7 @@ The following procedure handles assignments to variables
 
 #+RESULTS:
 #[constant 40 #x2]
+#[constant 40 #x2]
 
 ***** Exercise 4.1
 
@@ -179,6 +183,7 @@ Here is the original
 #+END_SRC 
 
 #+RESULTS:
+list-of-values
 list-of-values
 
 We need to give proper names to each of the values and then cons them in a way that makes the order explicit 
@@ -200,6 +205,7 @@ We need to give proper names to each of the values and then cons them in a way t
 #+END_SRC
 
 #+RESULTS:
+#[constant 40 #x2]
 #[constant 40 #x2]
 
 ** Representing Expressions 
@@ -322,13 +328,13 @@ We need to give proper names to each of the values and then cons them in a way t
 
 #+RESULTS:
 #[constant 40 #x2]
+#[constant 40 #x2]
 
 ** Derived Expressions 
 
 We can implement cond as a sequence of nested if statements 
 
 #+BEGIN_SRC scheme
-
 (define (cond? exp)
   (tagged-list? exp 'cond))
 
@@ -359,10 +365,10 @@ We can implement cond as a sequence of nested if statements
             (make-if (cond-predicate first)
                      (sequence->exp (cond-actions first))
                      (expand-clauses rest))))))
-
 #+END_SRC
 
 #+RESULTS:
+#[constant 40 #x2]
 #[constant 40 #x2]
 
 expressions that we choose to implement as syntactic transformations are called derived expressions. Let expressions are also derived expressions. 
@@ -396,6 +402,7 @@ If we look at the eval expression:
 
 #+RESULTS:
 eval
+eval
 
 We see that the application? takes an expression which is implemented as a pair, and from that pulls out the operator and operands, which it then compares in an environment. If we choose to swap the order, the language won't be able to treat the assignment as a special form, and it would then try to eval the operater on the expression. 
 
@@ -424,6 +431,7 @@ For the example (define x 3) we would see
 
 #+RESULTS:
 #[constant 40 #x2]
+#[constant 40 #x2]
 
 ***** Exercise 4.3 
 
@@ -451,6 +459,7 @@ Here is the original eval:
 #+END_SRC
 
 #+RESULTS:
+eval
 eval
 
 
@@ -497,6 +506,9 @@ Install and and or as special forms for the evaluator by defining appropriate sy
         (else (eval-or (rest-preds exp) env))))
 #+END_SRC
 
+#+RESULTS:
+#[constant 40 #x2]
+
 ***** Exercise 4.5 
 
 Scheme allows an additional syntax for cond clauses, (<test> => <recipient>). If test is true, then recipient is evaluted.
@@ -507,6 +519,9 @@ for example
 (cond ((assoc 'b '((a 1) (b 2))) => cadr)
       (else false))
 #+END_SRC
+
+#+RESULTS:
+2
 
 Modify the handling of cond so that it supports this syntax. 
 
@@ -547,6 +562,9 @@ Here is the original definition of cond:
                      (expand-clauses rest))))))
 #+END_SRC
 
+#+RESULTS:
+#[constant 40 #x2]
+
 We wish to extend it to handle (<test> => <recipient>).
 
 We need to do the following: 
@@ -565,12 +583,122 @@ We need to do the following:
                 (error "ELSE clauses isn't last: COND->IF" clauses))
             (make-if (cond-predicate first)
                      (sequence->exp (cond-actions first))
+                     (expand-clauses rest)))
+        (if (eq? (cond-actions first) '=>)
+            (make-if (cond-predicate first)
+                     (cadr (cond-actions first))
+                     (expand-clauses rest))
+            (make-if (cond-predicate first)
+                     (sequence->exp (cond-actions first))
                      (expand-clauses rest))))))
-
-(define (cond-actions clause)
-  (if (eq? '=> (cadr clause)
-           (list (list (caddr clause)
-                       (cond-predicate clause)))
-           (cdr clause))))
 #+END_SRC
 
+***** Exercise 4.6 
+
+Implement a syntactic transformation let->combination that reduces evaluating let expressions to evaluating combinations of the type shown here, and add the appropriate clause to eval to handle let expressions.
+
+thoughts: similar to cond, except instead to translating cond to a sequence of nested if statements we wish to translate let 
+
+(let ((v1 exp1)(v2 exp2)...(vn expn)) body) 
+
+to 
+
+((lambda (v1 v2 ... vn)) body)
+
+#+BEGIN_SRC scheme
+; find let
+(define (let? exp) (tagged-list? exp 'let))
+
+; get components
+(define (let-vars exp)
+  (map car (cadr exp)))
+
+(define (let-exps exp)
+  (map cadr (cadr exp)))
+
+(define (let-body exp)
+  (cddr exp))
+
+; translate to lambda using our new languages make-lambda
+(define (let->combination exp)
+  (cons (make-lambda (let-vars exp) (let-body exp))
+        (let-exps exp)))
+
+; place inside of eval function 
+(define (eval exp env)
+  (cond ((self-evaluating? exp) exp)
+        ((variable? exp) (lookup-variable-value exp env))
+        ((quoted? exp) (text-of-quotation exp))
+        ((assignment? exp) (eval-assignment exp env))
+        ((definition? exp) (eval-definition exp env))
+        ((if? exp) (eval-if exp env))
+        ((lambda? exp) (make-procedure
+                        (lambda-parameters exp)
+                        (lambda-body exp)) env)
+        ((begin? exp) (eval-sequence (begin-actions exp) env))
+        ((cond? exp) (eval (cond->if exp) env))
+        ((let? exp) (eval (let->combination exp) env))
+        ((application? exp)
+         (apply (eval (operator exp) env)
+                (list-of-values (operands exp) env)))
+        (else (error "Unknown expression type: EVAL" exp))))
+#+END_SRC
+
+***** Exercise 4.7 
+
+let* is similar to let, except that the bindings of the let* variables are performed sequentially from left to right, and each binding is made in an environment in which all of the preceding bindings are visible. 
+
+#+BEGIN_SRC scheme
+(let* ((x 3)
+       (y (+ x 2))
+       (z (+ x y 5)))
+  (* x z))
+#+END_SRC
+
+Explain how a let* expression can be rewritten as a set of nested let expressions and write a procedire let*->nested-lets that performs the transformation. 
+
+thoughts: we have let. This would likely be implemented in the same way that cond is implemented as a sequence of nested ifs. 
+
+What we want is to take something like above:
+
+(let* ((x 3)
+       (y (+ x 2))
+       (z (+ x y 5)))
+  (* x z))
+
+and turn it into the following: 
+
+#+BEGIN_SRC scheme
+(let ((x 3)
+      (let ((y (+ x 2)))
+        (let ((z (+ x y 5))))))
+  (* x z))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(define (let*? exp) (tagged-list? exp 'let*))
+
+; get components
+(define (let*-vars exp)
+  (map car (cadr exp)))
+
+(define (let-exps exp)
+  (map cadr (cadr exp)))
+
+(define (let-body exp)
+  (cddr exp))
+
+; translate to lambda using our new languages make-lambda
+(define (let*->nested exp)
+  (cons (make-lambda (let-vars exp) (let-body exp))
+        (let-exps exp)))
+
+#+END_SRC
+
+If we implement let, is it sufficient to add the following clause to eval? 
+
+#+BEGIN_SRC scheme
+(eval (let*->nested-lets exp) env)
+#+END_SRC
+
+or must we explicitly expand let* in terms of non-derived expressions?
