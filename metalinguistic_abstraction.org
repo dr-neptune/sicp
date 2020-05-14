@@ -65,6 +65,7 @@ For a procedure application, eval must recursively evaluate the operator part an
 #+END_SRC
 
 #+RESULTS:
+eval
 
 *** Apply 
 
@@ -89,6 +90,7 @@ The environment for the evaluation of the body of a compound procedure is constr
 
 #+RESULTS:
 apply
+apply
 
 **** Procedure Arguments
 
@@ -104,6 +106,7 @@ When eval processes a procedure application, it uses list-of-values to produce t
 #+END_SRC
 
 #+RESULTS:
+list-of-values
 list-of-values
 list-of-values
 list-of-values
@@ -123,6 +126,7 @@ eval-if evalutes the predicate part of an if expression in the given environment
 eval-if
 eval-if
 eval-if
+eval-if
 
 The use of true? in eval-if highlights the issue of the connection between an implemented language and an implementation language. The if-predicate is evaluated in the language being implemented and thus yields a value in that language. The interpreter predicate true? translates that values into a value that can be tested by the if in the implementation language. The metacircular representation of truth might not be the same as that of the underlying Scheme. 
 
@@ -138,6 +142,7 @@ eval-sequence is used by apply to evaluate the sequence of expressions in a proc
 #+END_SRC
 
 #+RESULTS:
+eval-sequence
 eval-sequence
 eval-sequence
 
@@ -164,6 +169,7 @@ The following procedure handles assignments to variables
 #+RESULTS:
 #[constant 40 #x2]
 #[constant 40 #x2]
+#[constant 40 #x2]
 
 ***** Exercise 4.1
 
@@ -183,6 +189,7 @@ Here is the original
 #+END_SRC 
 
 #+RESULTS:
+list-of-values
 list-of-values
 list-of-values
 
@@ -205,6 +212,7 @@ We need to give proper names to each of the values and then cons them in a way t
 #+END_SRC
 
 #+RESULTS:
+#[constant 40 #x2]
 #[constant 40 #x2]
 #[constant 40 #x2]
 
@@ -329,6 +337,7 @@ We need to give proper names to each of the values and then cons them in a way t
 #+RESULTS:
 #[constant 40 #x2]
 #[constant 40 #x2]
+#[constant 40 #x2]
 
 ** Derived Expressions 
 
@@ -370,6 +379,7 @@ We can implement cond as a sequence of nested if statements
 #+RESULTS:
 #[constant 40 #x2]
 #[constant 40 #x2]
+#[constant 40 #x2]
 
 expressions that we choose to implement as syntactic transformations are called derived expressions. Let expressions are also derived expressions. 
 
@@ -403,6 +413,7 @@ If we look at the eval expression:
 #+RESULTS:
 eval
 eval
+eval
 
 We see that the application? takes an expression which is implemented as a pair, and from that pulls out the operator and operands, which it then compares in an environment. If we choose to swap the order, the language won't be able to treat the assignment as a special form, and it would then try to eval the operater on the expression. 
 
@@ -432,6 +443,7 @@ For the example (define x 3) we would see
 #+RESULTS:
 #[constant 40 #x2]
 #[constant 40 #x2]
+#[constant 40 #x2]
 
 ***** Exercise 4.3 
 
@@ -459,6 +471,7 @@ Here is the original eval:
 #+END_SRC
 
 #+RESULTS:
+eval
 eval
 eval
 
@@ -508,6 +521,7 @@ Install and and or as special forms for the evaluator by defining appropriate sy
 
 #+RESULTS:
 #[constant 40 #x2]
+#[constant 40 #x2]
 
 ***** Exercise 4.5 
 
@@ -521,6 +535,7 @@ for example
 #+END_SRC
 
 #+RESULTS:
+2
 2
 
 Modify the handling of cond so that it supports this syntax. 
@@ -564,6 +579,7 @@ Here is the original definition of cond:
 
 #+RESULTS:
 #[constant 40 #x2]
+#[constant 40 #x2]
 
 We wish to extend it to handle (<test> => <recipient>).
 
@@ -592,6 +608,9 @@ We need to do the following:
                      (sequence->exp (cond-actions first))
                      (expand-clauses rest))))))
 #+END_SRC
+
+#+RESULTS:
+expand-clauses
 
 ***** Exercise 4.6 
 
@@ -644,6 +663,9 @@ to
         (else (error "Unknown expression type: EVAL" exp))))
 #+END_SRC
 
+#+RESULTS:
+#[constant 40 #x2]
+
 ***** Exercise 4.7 
 
 let* is similar to let, except that the bindings of the let* variables are performed sequentially from left to right, and each binding is made in an environment in which all of the preceding bindings are visible. 
@@ -654,6 +676,9 @@ let* is similar to let, except that the bindings of the let* variables are perfo
        (z (+ x y 5)))
   (* x z))
 #+END_SRC
+
+#+RESULTS:
+39
 
 Explain how a let* expression can be rewritten as a set of nested let expressions and write a procedire let*->nested-lets that performs the transformation. 
 
@@ -675,30 +700,177 @@ and turn it into the following:
   (* x z))
 #+END_SRC
 
+#+RESULTS:
+
 #+BEGIN_SRC scheme
 (define (let*? exp) (tagged-list? exp 'let*))
 
 ; get components
-(define (let*-vars exp)
-  (map car (cadr exp)))
+(define (let*-exps exp)
+  (cadr exp))
 
-(define (let-exps exp)
-  (map cadr (cadr exp)))
-
-(define (let-body exp)
+(define (let*-body exp)
   (cddr exp))
 
 ; translate to lambda using our new languages make-lambda
 (define (let*->nested exp)
-  (cons (make-lambda (let-vars exp) (let-body exp))
-        (let-exps exp)))
+  (define (make-let args body)
+    (cons 'let (cons args body)))
+  (define (unravel-let args body)
+    (if (null? args)
+        (sequence->exp body)
+        (make-let (list (car args))
+                  (list (unravel-let (cdr args) body)))))
+  (unravel-let (let*-exps exp) (let*-body exp)))
 
+(let*->nested '(let* ((x 1) (y 2)) x y))
 #+END_SRC
 
-If we implement let, is it sufficient to add the following clause to eval? 
+
+***** Exercise 4.8 
+
+Named let is a variant of let that has the form (let var bindings body)
+
+
+** Evaluator Data Structures 
+
+In addition to defining the external syntax of expressions, the evaluator must also define the data structures that the evaluator manipulates internally as part of the execution of a program, such as the representation of procedures and environments and the representation of true and false. 
+
+** Testing of Predicates 
 
 #+BEGIN_SRC scheme
-(eval (let*->nested-lets exp) env)
+(define (true? x)
+  (not (eq? x false)))
+
+(define (false? x)
+  (eq? x false))
 #+END_SRC
 
-or must we explicitly expand let* in terms of non-derived expressions?
+** Representing Procedures
+
+To handle primitives, we assume we have some procedures. These are defined further down
+
+#+BEGIN_SRC scheme
+(define (apply-primitive proc args))
+
+(define (primitive-procedure? proc))
+#+END_SRC
+
+Compound procedures are constructed from parameters, procedure bodies and environments using the constructor make-procedure 
+
+#+BEGIN_SRC scheme
+(define (make-procedure parameters body env)
+  (list 'procedure parameters body env))
+
+(define (compound-procedure? p)
+  (tagged-list? p 'procedure))
+
+(define (procedure-parameters p)
+  (cadr p))
+
+(define (procedure-body p)
+  (caddr p))
+
+(define (procedure-environment p)
+  (cadddr p))
+#+END_SRC
+
+** Operations on Environments 
+
+The evaluator needs operations for manipulating environments. Our environment is a sequence of frames, where each frame is a table of bindings that associate variables with their corresponding values. 
+
+- (lookup-variable-var var env) returns the value that is bound to the symbol var in the environment or signals an error if the variable is unbound
+- (extend-environment variables values base-env) returns a new environment, where the new vars and vals are enclosed by the base env
+- (define-variable! var value env) adds to the first frame in the environment a new binding that ssociated the variable with the value
+- (set-variable-value! var val env) changes the binding of the variable in the environment
+
+To implement these, we represent the environment as a list of frames. 
+
+#+BEGIN_SRC scheme
+(define (enclosing-environment env) (cdr env))
+(define (first-frame env) (car env))
+(define the-empty-environment '())
+#+END_SRC
+
+Each frame of an environment is now represented as a pair of lists: 
+- a list of the variables bound in that frame
+- a list of the associated values 
+
+#+BEGIN_SRC scheme
+(define (make-frame variables values)
+  (cons variables values))
+
+(define (frame-variables frame)
+  (car frame))
+
+(define (frame-values frame)
+  (cdr frame))
+
+(define (add-binding-to-frame! var val frame)
+  (set-car! frame (cons var (car frame)))
+  (set-cdr! frame (cons val (cdr frame))))
+#+END_SRC
+
+To extend an environment by a new frame that associates variables with values, we make a frame consisting of the list of variables and the list of values and we adjoin this to the environment. 
+
+#+BEGIN_SRC scheme
+(define (extend-environment vars vals base-env)
+  (if (= (length vars)
+         (length vals))
+      (cons (make-frame vars vals) base-env)
+      (if (< (length vars)
+             (length vals))
+          (error "Too many arguments supplied" vars vals)
+          (error "Too few arguments supplied" vars vals))))
+#+END_SRC
+
+To look up a variable in an environment, we scan a list of variables in the first frame. If we find the desired variable, we return the corresponding element in the list of values. If we do not find the variable in the current frame, we search the enclosing environment, as so on. If we reach an empty environment, we signal an unbound variable error. 
+
+#+BEGIN_SRC scheme
+(define (lookup-variable-value var env)
+  (define (env-loop env)
+    (define (scan var vals)
+      (cond ((null? vars)
+             (env-loop (enclosing-environment env)))
+            ((eq? var (car vars)) (car vals))
+            (else (scan (cdr vars) (cdr vals)))))
+    (if (eq? env the-empty-environment)
+        (error "Unbound Variable" var)
+        (let ((frame (first-frame env)))
+          (scan (frame-variables frame)
+                (frame-values frame)))))
+  (env-loop env))
+#+END_SRC
+
+To set a variable to a new value in a specified environment, we scan for the variable, just as in lookup-variable-value and change the corresponding value when we find it 
+
+#+BEGIN_SRC scheme
+(define (set-variable-var! var val env)
+  (define (env-loop env)
+    (define (scan vars vals)
+      (cond ((null? vars) (env-loop (enclosing-environment env)))
+            ((eq? var (car vars)) (set-car! vals val))
+            (else (scan (cdr vars) (cdr vals)))))
+    (if (eq? env the-empty-environment)
+        (error "Unbound variable: SET!" var)
+        (let ((frame (first-frame env)))
+          (scan (frame-variables frame)
+                (frame-values frame)))))
+  (env-loop env))
+#+END_SRC
+
+To define a variable, we search the first frame for a binding for the variable, and change the binding if it exists. If no such binding exists, we adjoin one to the data frame. 
+
+#+BEGIN_SRC scheme
+(define (define-variable! var val env)
+  (let ((frame (first-frame env)))
+    (define (scan vars vals env)
+      (cond ((null? vars)
+             (add-binding-to-frame! var val frame))
+            ((eq? var (car vars))
+             (set-car! vals val))
+            (else (scan (cdr vars) (cdr vals)))))
+    (scan (frame-variables frame)
+          (frame-values frame))))
+#+END_SRC
+
