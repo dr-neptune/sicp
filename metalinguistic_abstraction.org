@@ -91,6 +91,7 @@ The environment for the evaluation of the body of a compound procedure is constr
 #+RESULTS:
 apply
 apply
+apply
 
 **** Procedure Arguments
 
@@ -106,6 +107,7 @@ When eval processes a procedure application, it uses list-of-values to produce t
 #+END_SRC
 
 #+RESULTS:
+list-of-values
 list-of-values
 list-of-values
 list-of-values
@@ -128,6 +130,7 @@ eval-if
 eval-if
 eval-if
 eval-if
+eval-if
 
 The use of true? in eval-if highlights the issue of the connection between an implemented language and an implementation language. The if-predicate is evaluated in the language being implemented and thus yields a value in that language. The interpreter predicate true? translates that values into a value that can be tested by the if in the implementation language. The metacircular representation of truth might not be the same as that of the underlying Scheme. 
 
@@ -143,6 +146,7 @@ eval-sequence is used by apply to evaluate the sequence of expressions in a proc
 #+END_SRC
 
 #+RESULTS:
+eval-sequence
 eval-sequence
 eval-sequence
 eval-sequence
@@ -169,6 +173,7 @@ The following procedure handles assignments to variables
 #+END_SRC
 
 #+RESULTS:
+eval-definition
 #[constant 40 #x2]
 #[constant 40 #x2]
 #[constant 40 #x2]
@@ -196,6 +201,7 @@ list-of-values
 list-of-values
 list-of-values
 list-of-values
+list-of-values
 
 We need to give proper names to each of the values and then cons them in a way that makes the order explicit 
 
@@ -214,12 +220,6 @@ We need to give proper names to each of the values and then cons them in a way t
              (right (list-of-values (rest-operands exps) env)))
         (cons right left))))
 #+END_SRC
-
-#+RESULTS:
-#[constant 40 #x2]
-#[constant 40 #x2]
-#[constant 40 #x2]
-#[constant 40 #x2]
 
 ** Representing Expressions 
 
@@ -340,6 +340,7 @@ We need to give proper names to each of the values and then cons them in a way t
 #+END_SRC
 
 #+RESULTS:
+rest-operands
 #[constant 40 #x2]
 #[constant 40 #x2]
 #[constant 40 #x2]
@@ -383,6 +384,7 @@ We can implement cond as a sequence of nested if statements
 #+END_SRC
 
 #+RESULTS:
+expand-clauses
 #[constant 40 #x2]
 #[constant 40 #x2]
 #[constant 40 #x2]
@@ -422,6 +424,7 @@ eval
 eval
 eval
 eval
+eval
 
 We see that the application? takes an expression which is implemented as a pair, and from that pulls out the operator and operands, which it then compares in an environment. If we choose to swap the order, the language won't be able to treat the assignment as a special form, and it would then try to eval the operater on the expression. 
 
@@ -449,6 +452,7 @@ For the example (define x 3) we would see
 #+END_SRC
 
 #+RESULTS:
+call-operands
 #[constant 40 #x2]
 #[constant 40 #x2]
 #[constant 40 #x2]
@@ -480,6 +484,7 @@ Here is the original eval:
 #+END_SRC
 
 #+RESULTS:
+eval
 eval
 eval
 eval
@@ -530,6 +535,7 @@ Install and and or as special forms for the evaluator by defining appropriate sy
 #+END_SRC
 
 #+RESULTS:
+eval-or
 #[constant 40 #x2]
 #[constant 40 #x2]
 #[constant 40 #x2]
@@ -546,6 +552,7 @@ for example
 #+END_SRC
 
 #+RESULTS:
+2
 2
 2
 2
@@ -590,6 +597,7 @@ Here is the original definition of cond:
 #+END_SRC
 
 #+RESULTS:
+expand-clauses
 #[constant 40 #x2]
 #[constant 40 #x2]
 #[constant 40 #x2]
@@ -623,6 +631,7 @@ We need to do the following:
 #+END_SRC
 
 #+RESULTS:
+expand-clauses
 expand-clauses
 expand-clauses
 
@@ -678,6 +687,7 @@ to
 #+END_SRC
 
 #+RESULTS:
+eval
 #[constant 40 #x2]
 #[constant 40 #x2]
 
@@ -693,6 +703,7 @@ let* is similar to let, except that the bindings of the let* variables are perfo
 #+END_SRC
 
 #+RESULTS:
+39
 39
 39
 
@@ -743,6 +754,7 @@ and turn it into the following:
 #+END_SRC
 
 #+RESULTS:
+| let | ((x 1)) | (let ((y 2)) (begin x y)) |
 (let ((x 1)) (let ((y 2)) (begin x y)))
 
 
@@ -766,6 +778,7 @@ In addition to defining the external syntax of expressions, the evaluator must a
 #+END_SRC
 
 #+RESULTS:
+false?
 #[constant 40 #x2]
 
 ** Representing Procedures
@@ -800,6 +813,7 @@ Compound procedures are constructed from parameters, procedure bodies and enviro
 #+END_SRC
 
 #+RESULTS:
+procedure-environment
 #[constant 40 #x2]
 
 ** Operations on Environments 
@@ -820,6 +834,7 @@ To implement these, we represent the environment as a list of frames.
 #+END_SRC
 
 #+RESULTS:
+the-empty-environment
 #[constant 40 #x2]
 
 Each frame of an environment is now represented as a pair of lists: 
@@ -842,6 +857,7 @@ Each frame of an environment is now represented as a pair of lists:
 #+END_SRC
 
 #+RESULTS:
+add-binding-to-frame!
 #[constant 40 #x2]
 
 To extend an environment by a new frame that associates variables with values, we make a frame consisting of the list of variables and the list of values and we adjoin this to the environment. 
@@ -858,6 +874,7 @@ To extend an environment by a new frame that associates variables with values, w
 #+END_SRC
 
 #+RESULTS:
+extend-environment
 extend-environment
 
 To look up a variable in an environment, we scan a list of variables in the first frame. If we find the desired variable, we return the corresponding element in the list of values. If we do not find the variable in the current frame, we search the enclosing environment, as so on. If we reach an empty environment, we signal an unbound variable error. 
@@ -880,6 +897,7 @@ To look up a variable in an environment, we scan a list of variables in the firs
 
 #+RESULTS:
 lookup-variable-value
+lookup-variable-value
 
 To set a variable to a new value in a specified environment, we scan for the variable, just as in lookup-variable-value and change the corresponding value when we find it 
 
@@ -900,14 +918,14 @@ To set a variable to a new value in a specified environment, we scan for the var
 
 #+RESULTS:
 set-variable-var!
+set-variable-var!
 
 To define a variable, we search the first frame for a binding for the variable, and change the binding if it exists. If no such binding exists, we adjoin one to the data frame. 
 
 #+BEGIN_SRC scheme
-
 (define (define-variable! var val env)
   (let ((frame (first-frame env)))
-    (define (scan vars vals env)
+    (define (scan vars vals)
       (cond ((null? vars)
              (add-binding-to-frame! var val frame))
             ((eq? var (car vars))
@@ -915,10 +933,10 @@ To define a variable, we search the first frame for a binding for the variable, 
             (else (scan (cdr vars) (cdr vals)))))
     (scan (frame-variables frame)
           (frame-values frame))))
-
 #+END_SRC
 
 #+RESULTS:
+define-variable!
 define-variable!
 
 *** Exercise 4.11 
@@ -956,6 +974,9 @@ Instead of representing a frame as a pair of lists, we can represent a frame as 
         frame))
 #+END_SRC
 
+#+RESULTS:
+add-binding-to-frame!
+
 *** Exercise 4.12 
 
 The procedures define-variable!, set-variable-value!, and lookup-variable-value can be expressed in terms of more abstract procedures for traversing the environment structure. 
@@ -992,7 +1013,7 @@ To start, here are the three procedures:
 
 (define (lookup-variable-value var env)
   (define (env-loop env)
-    (define (scan var vals)
+    (define (scan vars vals)
       (cond ((null? vars)
              (env-loop (enclosing-environment env)))
             ((eq? var (car vars)) (car vals))
@@ -1005,6 +1026,9 @@ To start, here are the three procedures:
   (env-loop env))
 
 #+END_SRC
+
+#+RESULTS:
+lookup-variable-value
 
 These all essentially have the same pattern with only a slightly different operation happening in the env. We want to write a more general version of scan to be used across all three.
 
@@ -1082,6 +1106,9 @@ We can tease this apart by generalizing and passing functions for specific opera
           (else (error "Unrecognized option" op)))))
 #+END_SRC
 
+#+RESULTS:
+var-opt
+
 *** Exercise 4.13 
 
 Scheme allows is to create new bindings for variables by means of define, but provides no way to get rid of bindings. Implement for the evaluator the special form make-unbound! that removes the binding of a given symbol from the environment. 
@@ -1104,6 +1131,9 @@ Here is lookup-variable for reference
   (env-loop env))
 #+END_SRC
 
+#+RESULTS:
+lookup-variable-value
+
 #+BEGIN_SRC scheme
 (define (make-unbound! var env)
   (define (env-loop env)
@@ -1121,3 +1151,100 @@ Here is lookup-variable for reference
                 (frame-values frame)))))
   (env-loop env))
 #+END_SRC
+
+#+RESULTS:
+make-unbound!
+
+
+** Running the Evaluator as a Program 
+
+#+BEGIN_SRC scheme
+(define (setup-environment)
+  (let ((initial-env (extend-environment (primitive-procedure-names)
+                                         (primitive-procedure-objects)
+                                         the-empty-environment)))
+    (define-variable! 'true true initial-env)
+    (define-variable! 'false false initial-env)
+    initial-env))
+
+(define the-global-environment (setup-environment))
+#+END_SRC
+
+We have chosen to represent a primitive procedure as a list beginning with the symbol primitive and containing a procedure in the underlying lisp that implements that primitive 
+
+#+BEGIN_SRC scheme
+(define (primitive-procedure? proc)
+  (tagged-list? proc 'primitive))
+
+(define (primitive-implementation proc)
+  (cadr proc))
+#+END_SRC
+
+setup-environment will get the primitive names and implementation procedures from a list 
+
+#+BEGIN_SRC scheme
+(define primitive-procedures
+  (list (list 'car car)
+        (list 'cdr cdr)
+        (list 'cons cons)
+        (list 'null? null?)))
+
+(define (primitive-procedure-names)
+  (map car primitive-procedures))
+
+(define (primitive-procedure-objects)
+  (map (lambda (proc) (list 'primitive (cadr proc)))
+       primitive-procedures))
+
+; to apply primitives, we apply the implementation procedure to the arguments
+(define (apply-primitive-procedure proc args)
+  (apply-in-underlying-scheme (primitive-implementation proc) args))
+#+END_SRC
+
+Now we define a REPL of sorts 
+
+#+BEGIN_SRC scheme
+(define input-prompt ";;; M-Eval input:")
+
+(define output-prompt ";;; M-Eval value:")
+
+(define (driver-loop)
+  (prompt-for-input input-prompt)
+  (let ((input (read)))
+    (let ((output (eval input the-global-environment)))
+      (announce-output output-prompt)
+      (user-print output)))
+  (driver-loop))
+
+(define (prompt-for-input string)
+  (newline)
+  (newline)
+  (display string)
+  (newline))
+
+(define (announce-output string)
+  (newline)
+  (display string)
+  (newline))
+
+(define (user-print object)
+  (if (compound-procedure? object)
+      (display (list 'compound-procedure
+                     (procedure-parameters object)
+                     (procedure-body object)
+                     '<procedure-env>))
+      (display object)))
+#+END_SRC
+
+Now all thats left is to initialize the global environment and start the loop 
+
+#+BEGIN_SRC scheme
+(define the-global-environment (setup-environment))
+(driver-loop)
+
+(define (append x y)
+  (if (null? x)
+      y
+      (cons (car x) (append (cdr x) y))))
+#+END_SRC
+
