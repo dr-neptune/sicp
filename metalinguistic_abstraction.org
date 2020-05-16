@@ -1248,3 +1248,82 @@ Now all thats left is to initialize the global environment and start the loop
       (cons (car x) (append (cdr x) y))))
 #+END_SRC
 
+** Data as Programs 
+
+We can regard the evaluator as a very special machine that takes as input a description of a machine, and in response, configures itself to emulate the machine described. 
+
+*** Exercise 4.15 
+
+Given a one argument procedure p and an object a, p is said to "halt" on a if evaluating the expression (p a) returns a value (as opposed to terminating with an error message or running forever). Show that it is impossible to write a procedure halts? that correctly determines whether p halts on a for any procedure p and object a. 
+
+Use the following reasoning: If you had such a procedure halts?, you could implement the following program: 
+
+#+BEGIN_SRC scheme
+(define (run-forever) (run-forever))
+(define (try p)
+  (if (halts? p p) (run-forever) 'halted))
+#+END_SRC
+
+Now consider evaluating the expression (try try) and show that any possible outcome (either halting or running forever) violates the intended behavior of halts?
+
+Consider (try try)
+
+Then, by the substitution model: 
+
+#+BEGIN_SRC scheme
+(try try)
+
+(if (halts? try try) (run-forever) 'halted)
+#+END_SRC
+
+Suppose it halts. 
+
+Then it will evaluate run-forever, and it wouldn't have halted.
+
+Suppose it doesn't halt. Then 'halted will never be evaluated and it won't halt. 
+
+Thus both efforts violate the intended behavior of halts, because it can never actually show the program halting. 
+
+** Internal Definitions 
+
+Our environment model of evaluation and our metacircular evaluator execute definitions in sequence, extending the environment frame one definition at a time. If we consider the internal definitions used to implement block structure, we will find that name-by-name extension of the environment may not be the best way to define local variables. 
+
+Consider a procedure with internal definitions like the following:
+
+#+BEGIN_SRC scheme
+(define (f x)
+  (define (even? n) (if (= n 0) #t (odd? (- n 1))))
+  (define (odd? n) (if (= n 0) #f (even? (- n 1))))
+  <rest-of-body>)
+#+END_SRC
+
+Here odd? and even? are mutually recursive procedures. The only satisfactory interpretation of the two defines is to regard them as if the names even? and odd? were being added to the environment simultaneously. 
+
+Since the definitions of the internal procedures come first, no calls to these procedures will be evaluated until all of them have been defined. Our sequential evaluation mechanism will give the same result as a mechanism that directly implements our simulataneous definition for any procedure in which the internal definitions come first in a body and evaluation of the value expressions for the defined variables doesn't actually use any of the defined variables.  
+
+There is a way to treat definitions such that internally defined names have truly simultaneous scope -- create all local variables that will be in the current environment before evaluating any of the value expressions. 
+
+We can do this with a syntax transformation on lambda expressions -- before we evaluate the body of a lambda expression, we scan out and eliminate all the internal definitions in the body. The internally defined variables will be created with a let and then set to their values by assignment. 
+
+For example 
+
+#+BEGIN_SRC scheme
+(lambda (vars)
+  (define u <e1>)
+  (define v <e2>)
+  <e3>)
+#+END_SRC
+
+would be transformed to 
+
+#+BEGIN_SRC scheme
+(lambda (vars)
+  (let ((u '*unassigned*)
+        (v '*unassigned*))
+    (set! u <e1>)
+    (set! v <e2>)
+    <e3>))
+#+END_SRC
+
+where unassigned is a special symbol that causes looking up a variable to signal an error if an attempt is made to use the value of the not-yet-assigned variable.
+
