@@ -1426,7 +1426,93 @@ and are a variation on let in which the expressions exk that provide the initial
 letrec -> let -> assign values with set! 
 
 #+BEGIN_SRC scheme
+(define (letrec? exp)
+  (tagged-list? exp 'letrec))
 
+(define (letrec-inits exp) (cadr exp))
+
+(define (letrec-body exp) (cddr exp))
+
+(define (declare-vars exp)
+  (map (lambda (x) (list (car x) '*unassigned*))
+       (letrec-inits exp)))
+
+(define (set-variables exp)
+  (map (lambda (x) (list 'set! (car x) (cadr x)))
+       (letrec-inits exp)))
+
+(define (letrec->let exp)
+  (list 'let (declare-variables exp)
+        (make-begin (append (set-variables exp)
+                            (letrec-body exp)))))
+#+END_SRC
+
+2. Louis Reasoner says we can just use let instead of defines inside a procedure. 
+
+*** Exercise 4.21 
+
+Louis's intuition was correct -- we can specify recursive procedures without using letrec. 
+
+The following expression computes 10 factorial by applying a recursive factorial procedure: 
+
+#+BEGIN_SRC scheme
+((lambda (n)
+   ((lambda (fact) (fact fact n))
+    (lambda (ft k)
+      (if (= k 1)
+          1
+          (* k (ft ft (- k 1)))))))
+ 10)
+#+END_SRC
+
+#+RESULTS:
+3628800
+
+1. Check that this really computes factorials, and devise an analogous expression for computing fibonacci numbers 
+
+#+BEGIN_SRC scheme
+((lambda (n)
+   ((lambda (fib) (fib fib n))
+    (lambda (fib k)
+      (cond ((= k 0) 1)
+            ((= k 1) 1)
+            (else (+ (fib fib (- k 2))
+                     (fib fib (- k 1))))))))
+ 8)
+#+END_SRC
+
+#+RESULTS:
+34
+
+2. Consider the following procedure, which includes mutually recursive internal definitions: 
+
+#+BEGIN_SRC scheme
+(define (f x)
+  (define (even? n)
+    (if (= n 0)
+        true
+        (odd? (- n 1))))
+  (define (odd? n)
+    (if (= n 0)
+        false
+        (even? (- n 1))))
+  (even? x))
+#+END_SRC
+
+Fill in the missing expressions to complete an alternative definition of f, which uses neither internal definitions not letrec: 
+
+#+BEGIN_SRC scheme
+(define (f x)
+  ((lambda (even? odd?)
+     (even? even? odd? x))
+   (lambda (ev? od? n)
+     (if (= n 0)
+         true
+         (od? od? ev? (- n 1))))
+   (lambda (ev? od? n)
+     (if (= n 0)
+         false
+         (ev? ev? od? (- n 1))))))
 #+END_SRC
 
 ** Separating Syntactic Analysis from Execution 
