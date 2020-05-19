@@ -4,3 +4,10 @@
 :ARCHIVE:
 :END:
 
+Now that we have an evaluator expressed as a lisp program, we can experiment with alternative choices in language design by simply modifying the evaluator. 
+
+A high level implementation base makes it easier to snarf features from the underlying language. 
+
+** Normal Order and Applicative Order 
+
+
