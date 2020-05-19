@@ -1,0 +1,6 @@
+* Variations on a Scheme -- Lazy Evaluation 
+:PROPERTIES:
+:header-args: :session scheme :results verbatim raw
+:ARCHIVE:
+:END:
+
