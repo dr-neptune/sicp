@@ -66,6 +66,7 @@ For a procedure application, eval must recursively evaluate the operator part an
 
 #+RESULTS:
 eval
+eval
 
 *** Apply 
 
@@ -92,6 +93,7 @@ The environment for the evaluation of the body of a compound procedure is constr
 apply
 apply
 apply
+apply
 
 **** Procedure Arguments
 
@@ -107,6 +109,7 @@ When eval processes a procedure application, it uses list-of-values to produce t
 #+END_SRC
 
 #+RESULTS:
+list-of-values
 list-of-values
 list-of-values
 list-of-values
@@ -131,6 +134,7 @@ eval-if
 eval-if
 eval-if
 eval-if
+eval-if
 
 The use of true? in eval-if highlights the issue of the connection between an implemented language and an implementation language. The if-predicate is evaluated in the language being implemented and thus yields a value in that language. The interpreter predicate true? translates that values into a value that can be tested by the if in the implementation language. The metacircular representation of truth might not be the same as that of the underlying Scheme. 
 
@@ -146,6 +150,7 @@ eval-sequence is used by apply to evaluate the sequence of expressions in a proc
 #+END_SRC
 
 #+RESULTS:
+eval-sequence
 eval-sequence
 eval-sequence
 eval-sequence
@@ -173,6 +178,7 @@ The following procedure handles assignments to variables
 #+END_SRC
 
 #+RESULTS:
+#[constant 147 #x2]
 eval-definition
 #[constant 40 #x2]
 #[constant 40 #x2]
@@ -202,6 +208,7 @@ list-of-values
 list-of-values
 list-of-values
 list-of-values
+list-of-values
 
 We need to give proper names to each of the values and then cons them in a way that makes the order explicit 
 
@@ -220,6 +227,9 @@ We need to give proper names to each of the values and then cons them in a way t
              (right (list-of-values (rest-operands exps) env)))
         (cons right left))))
 #+END_SRC
+
+#+RESULTS:
+#[constant 147 #x2]
 
 ** Representing Expressions 
 
@@ -340,6 +350,7 @@ We need to give proper names to each of the values and then cons them in a way t
 #+END_SRC
 
 #+RESULTS:
+#[constant 147 #x2]
 rest-operands
 #[constant 40 #x2]
 #[constant 40 #x2]
@@ -384,6 +395,7 @@ We can implement cond as a sequence of nested if statements
 #+END_SRC
 
 #+RESULTS:
+#[constant 147 #x2]
 expand-clauses
 #[constant 40 #x2]
 #[constant 40 #x2]
@@ -425,6 +437,7 @@ eval
 eval
 eval
 eval
+eval
 
 We see that the application? takes an expression which is implemented as a pair, and from that pulls out the operator and operands, which it then compares in an environment. If we choose to swap the order, the language won't be able to treat the assignment as a special form, and it would then try to eval the operater on the expression. 
 
@@ -452,6 +465,7 @@ For the example (define x 3) we would see
 #+END_SRC
 
 #+RESULTS:
+#[constant 147 #x2]
 call-operands
 #[constant 40 #x2]
 #[constant 40 #x2]
@@ -484,6 +498,7 @@ Here is the original eval:
 #+END_SRC
 
 #+RESULTS:
+eval
 eval
 eval
 eval
@@ -535,6 +550,7 @@ Install and and or as special forms for the evaluator by defining appropriate sy
 #+END_SRC
 
 #+RESULTS:
+#[constant 147 #x2]
 eval-or
 #[constant 40 #x2]
 #[constant 40 #x2]
@@ -552,6 +568,7 @@ for example
 #+END_SRC
 
 #+RESULTS:
+2
 2
 2
 2
@@ -597,6 +614,7 @@ Here is the original definition of cond:
 #+END_SRC
 
 #+RESULTS:
+#[constant 147 #x2]
 expand-clauses
 #[constant 40 #x2]
 #[constant 40 #x2]
@@ -631,6 +649,7 @@ We need to do the following:
 #+END_SRC
 
 #+RESULTS:
+expand-clauses
 expand-clauses
 expand-clauses
 expand-clauses
@@ -687,6 +706,7 @@ to
 #+END_SRC
 
 #+RESULTS:
+#[constant 147 #x2]
 eval
 #[constant 40 #x2]
 #[constant 40 #x2]
@@ -703,6 +723,7 @@ let* is similar to let, except that the bindings of the let* variables are perfo
 #+END_SRC
 
 #+RESULTS:
+39
 39
 39
 39
@@ -754,7 +775,7 @@ and turn it into the following:
 #+END_SRC
 
 #+RESULTS:
-| let | ((x 1)) | (let ((y 2)) (begin x y)) |
+(let ((x 1)) (let ((y 2)) (begin x y)))
 (let ((x 1)) (let ((y 2)) (begin x y)))
 
 
@@ -778,6 +799,7 @@ In addition to defining the external syntax of expressions, the evaluator must a
 #+END_SRC
 
 #+RESULTS:
+#[constant 147 #x2]
 false?
 #[constant 40 #x2]
 
@@ -813,6 +835,7 @@ Compound procedures are constructed from parameters, procedure bodies and enviro
 #+END_SRC
 
 #+RESULTS:
+#[constant 147 #x2]
 procedure-environment
 #[constant 40 #x2]
 
@@ -834,6 +857,7 @@ To implement these, we represent the environment as a list of frames.
 #+END_SRC
 
 #+RESULTS:
+#[constant 147 #x2]
 the-empty-environment
 #[constant 40 #x2]
 
@@ -857,6 +881,7 @@ Each frame of an environment is now represented as a pair of lists:
 #+END_SRC
 
 #+RESULTS:
+#[constant 147 #x2]
 add-binding-to-frame!
 #[constant 40 #x2]
 
@@ -874,6 +899,7 @@ To extend an environment by a new frame that associates variables with values, w
 #+END_SRC
 
 #+RESULTS:
+extend-environment
 extend-environment
 extend-environment
 
@@ -898,6 +924,7 @@ To look up a variable in an environment, we scan a list of variables in the firs
 #+RESULTS:
 lookup-variable-value
 lookup-variable-value
+lookup-variable-value
 
 To set a variable to a new value in a specified environment, we scan for the variable, just as in lookup-variable-value and change the corresponding value when we find it 
 
@@ -919,6 +946,7 @@ To set a variable to a new value in a specified environment, we scan for the var
 #+RESULTS:
 set-variable-var!
 set-variable-var!
+set-variable-var!
 
 To define a variable, we search the first frame for a binding for the variable, and change the binding if it exists. If no such binding exists, we adjoin one to the data frame. 
 
@@ -936,6 +964,7 @@ To define a variable, we search the first frame for a binding for the variable, 
 #+END_SRC
 
 #+RESULTS:
+define-variable!
 define-variable!
 define-variable!
 
@@ -975,6 +1004,7 @@ Instead of representing a frame as a pair of lists, we can represent a frame as 
 #+END_SRC
 
 #+RESULTS:
+#[constant 147 #x2]
 add-binding-to-frame!
 
 *** Exercise 4.12 
@@ -1028,6 +1058,7 @@ To start, here are the three procedures:
 #+END_SRC
 
 #+RESULTS:
+#[constant 147 #x2]
 lookup-variable-value
 
 These all essentially have the same pattern with only a slightly different operation happening in the env. We want to write a more general version of scan to be used across all three.
@@ -1067,7 +1098,7 @@ Similarly, both set-variable-var and lookup-variable-var have identical env-loop
 
 We can tease this apart by generalizing and passing functions for specific operations. Then we can use message passing to create a var-ops function
 
-#+BEGIN_SRC scheme
+#+BEGIN_SRC scheme 
 (define (var-opt var val env op)
     ; define scan 
   (define (scan-gen vars vals)
@@ -1108,6 +1139,7 @@ We can tease this apart by generalizing and passing functions for specific opera
 
 #+RESULTS:
 var-opt
+var-opt
 
 *** Exercise 4.13 
 
@@ -1133,6 +1165,7 @@ Here is lookup-variable for reference
 
 #+RESULTS:
 lookup-variable-value
+lookup-variable-value
 
 #+BEGIN_SRC scheme
 (define (make-unbound! var env)
@@ -1154,6 +1187,7 @@ lookup-variable-value
 
 #+RESULTS:
 make-unbound!
+make-unbound!
 
 
 ** Running the Evaluator as a Program 
@@ -1170,6 +1204,8 @@ make-unbound!
 (define the-global-environment (setup-environment))
 #+END_SRC
 
+#+RESULTS:
+
 We have chosen to represent a primitive procedure as a list beginning with the symbol primitive and containing a procedure in the underlying lisp that implements that primitive 
 
 #+BEGIN_SRC scheme
@@ -1179,6 +1215,9 @@ We have chosen to represent a primitive procedure as a list beginning with the s
 (define (primitive-implementation proc)
   (cadr proc))
 #+END_SRC
+
+#+RESULTS:
+#[constant 147 #x2]
 
 setup-environment will get the primitive names and implementation procedures from a list 
 
@@ -1200,6 +1239,9 @@ setup-environment will get the primitive names and implementation procedures fro
 (define (apply-primitive-procedure proc args)
   (apply-in-underlying-scheme (primitive-implementation proc) args))
 #+END_SRC
+
+#+RESULTS:
+#[constant 147 #x2]
 
 Now we define a REPL of sorts 
 
@@ -1236,6 +1278,9 @@ Now we define a REPL of sorts
       (display object)))
 #+END_SRC
 
+#+RESULTS:
+#[constant 147 #x2]
+
 Now all thats left is to initialize the global environment and start the loop 
 
 #+BEGIN_SRC scheme
@@ -1247,6 +1292,8 @@ Now all thats left is to initialize the global environment and start the loop
       y
       (cons (car x) (append (cdr x) y))))
 #+END_SRC
+
+#+RESULTS:
 
 ** Data as Programs 
 
@@ -1264,6 +1311,9 @@ Use the following reasoning: If you had such a procedure halts?, you could imple
   (if (halts? p p) (run-forever) 'halted))
 #+END_SRC
 
+#+RESULTS:
+#[constant 147 #x2]
+
 Now consider evaluating the expression (try try) and show that any possible outcome (either halting or running forever) violates the intended behavior of halts?
 
 Consider (try try)
@@ -1275,6 +1325,8 @@ Then, by the substitution model:
 
 (if (halts? try try) (run-forever) 'halted)
 #+END_SRC
+
+#+RESULTS:
 
 Suppose it halts. 
 
@@ -1297,6 +1349,9 @@ Consider a procedure with internal definitions like the following:
   <rest-of-body>)
 #+END_SRC
 
+#+RESULTS:
+f
+
 Here odd? and even? are mutually recursive procedures. The only satisfactory interpretation of the two defines is to regard them as if the names even? and odd? were being added to the environment simultaneously. 
 
 Since the definitions of the internal procedures come first, no calls to these procedures will be evaluated until all of them have been defined. Our sequential evaluation mechanism will give the same result as a mechanism that directly implements our simulataneous definition for any procedure in which the internal definitions come first in a body and evaluation of the value expressions for the defined variables doesn't actually use any of the defined variables.  
@@ -1314,6 +1369,9 @@ For example
   <e3>)
 #+END_SRC
 
+#+RESULTS:
+#[compound-procedure 149]
+
 would be transformed to 
 
 #+BEGIN_SRC scheme
@@ -1324,6 +1382,9 @@ would be transformed to
     (set! v <e2>)
     <e3>))
 #+END_SRC
+
+#+RESULTS:
+#[compound-procedure 150]
 
 where unassigned is a special symbol that causes looking up a variable to signal an error if an attempt is made to use the value of the not-yet-assigned variable.
 
@@ -1366,6 +1427,9 @@ where unassigned is a special symbol that causes looking up a variable to signal
   (env-loop env))
 #+END_SRC
 
+#+RESULTS:
+#[compound-procedure 151 lookup-variable-value]
+
 2. Write a procedure scale-out-defines that takes a procedure body and returns an equivalent one that has no internal definitions, by making the transformation above 
 
 find eq to define 
@@ -1395,6 +1459,9 @@ Taken from schemewiki:
                                                      (definition-value def))) defs) exps))))
 #+END_SRC
 
+#+RESULTS:
+#[constant 147 #x2]
+
 3. Install scan-out-defines in the interpreter, either in make-procedure or in procedure-body. What place is better? Why? 
 
 We would want to place scan-out-defines in make-procedure so that we aren't scanning every time the method recursively looked at the procedure-body
@@ -1414,6 +1481,8 @@ Because internal definitions look sequential, but are actually simultaneous, som
                         (even? (- n 1)))))))
   <rest of body of f>)
 #+END_SRC
+
+#+RESULTS:
 
 letrec expressions have the form 
 
@@ -1447,6 +1516,9 @@ letrec -> let -> assign values with set!
                             (letrec-body exp)))))
 #+END_SRC
 
+#+RESULTS:
+#[constant 147 #x2]
+
 2. Louis Reasoner says we can just use let instead of defines inside a procedure. 
 
 *** Exercise 4.21 
@@ -1467,6 +1539,7 @@ The following expression computes 10 factorial by applying a recursive factorial
 
 #+RESULTS:
 3628800
+3628800
 
 1. Check that this really computes factorials, and devise an analogous expression for computing fibonacci numbers 
 
@@ -1483,6 +1556,7 @@ The following expression computes 10 factorial by applying a recursive factorial
 
 #+RESULTS:
 34
+34
 
 Bonus: Implement the Y Combinator 
 
@@ -1492,6 +1566,9 @@ Bonus: Implement the Y Combinator
     (lambda (x) (x x))
     (lambda (x) (f (lambda (y) ((x x) y))))))
 #+END_SRC
+
+#+RESULTS:
+y-combinator
 
 2. Consider the following procedure, which includes mutually recursive internal definitions: 
 
@@ -1507,6 +1584,9 @@ Bonus: Implement the Y Combinator
         (even? (- n 1))))
   (even? x))
 #+END_SRC
+
+#+RESULTS:
+f
 
 Fill in the missing expressions to complete an alternative definition of f, which uses neither internal definitions not letrec: 
 
@@ -1526,6 +1606,9 @@ Fill in the missing expressions to complete an alternative definition of f, whic
 (f 8)
 #+END_SRC
 
+#+RESULTS:
+#t
+
 ** Separating Syntactic Analysis from Execution 
 
 The evaluator implemented above is simple, but inefficient, because the syntactic analysis of expressions is interleaved with their execution. Thus if a program is executed many times, its syntax is analyzed many times. The analysis is expensive, and performing it repeatedly is wasteful. 
@@ -1540,6 +1623,9 @@ eval now becomes:
 (define (eval exp env)
   ((analyze exp) env))
 #+END_SRC
+
+#+RESULTS:
+eval
 
 #+BEGIN_SRC scheme
 (define (analyze exp)
@@ -1565,6 +1651,9 @@ eval now becomes:
          (analyze-application exp))
         (else (error "Unknown expression type: ANALYZE" exp))))
 #+END_SRC
+
+#+RESULTS:
+analyze
 
 #+BEGIN_SRC scheme
 (define (analyze-self-evaluating exp)
@@ -1637,4 +1726,7 @@ eval now becomes:
            (procedure-environment proc))))
         (else (error "Unknown procedure type: EXECUTE-APPLICATION" proc))))
 #+END_SRC
+
+#+RESULTS:
+#[constant 147 #x2]
 

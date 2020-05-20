@@ -41,4 +41,207 @@ We get maximum recursion depth exceeded. This is because it is evaluating the fa
 
 *** Exercise 4.26 
 
+#+BEGIN_SRC scheme
+(define (unless? exp) (tagged-list? exp 'unless))
 
+(define (unless-predicate exp)
+  (cadr exp))
+
+(define (unless-consequent exp)
+  (if (not (null? (cdddr exp)))
+      (cadddr exp)
+      'false))
+
+(define (unless-alternative exp)
+  (caddr exp))
+
+(define (unless->if exp)
+  (make-if (unless-predicate exp)
+           (unless-consequent exp)
+           (unless-alternative exp)))
+#+END_SRC
+
+
+** An Interpreter with Lazy Evaluation 
+
+In this section we implement a normal-order language that is the same as Scheme except that compound procedures are non-strict in each argument. Primitive procedures will still be strict. 
+
+The basic idea is that when applying a procedure, the interpreter must determine which arguments are to be evaluated and which are to be delayed. The delayed arguments are transformed into objects called thunks.  
+
+Thunks must contain imformation required to produce the value of the argument when it is needed, as if it had been evaluated at the time of the application. It must contain the argument expression and the environment in which the procedure application is being evaluated. 
+
+The process of evaluating the expression in a thunk is called forcing. This is similar to what we did with delayed streams, but the crucial difference is that here we are building this delay into the evaluator. We also have the design choice of whether we wish to memoize thunks, which would, the first time a thunk is forced, store the value that is computed. 
+
+** Modifying the Evaluator 
+
+The main difference between the lazy evaluator and the one in the last section is the handling of procedure applications in eval and apply. We change the application clause to eval to 
+
+#+BEGIN_SRC scheme
+; original
+((application? exp)
+ (apply (eval (operator exp) env)
+        (list-of-values
+         (operands exp)
+         env)))
+
+; lazy
+((application? exp)
+ (apply (actual-value (operator exp) env)
+        (operands exp)
+        env))
+
+#+END_SRC
+
+This is almost the same, but we call apply with the operand expressions, rather than the arguments produced by evaluating them. Since we will need the environment to construct thunks if the arguments are to be delayed, we must pass this as well. 
+
+#+BEGIN_SRC scheme
+(define (eval exp env)
+  (cond ((self-evaluating? exp) exp)
+        ((variable? exp) (lookup-variable-value exp env))
+        ((quoted? exp) (text-of-quotation exp))
+        ((assignment? exp) (eval-assignment exp env))
+        ((definition? exp) (eval-definition exp env))
+        ((if? exp) (eval-if exp env))
+        ((lambda? exp) (make-procedure
+                        (lambda-parameters exp)
+                        (lambda-body exp)) env)
+        ((begin? exp) (eval-sequence (begin-actions exp) env))
+        ((cond? exp) (eval (cond->if exp) env))
+        ((let? exp) (eval (let->combination exp) env))
+        ((application? exp)
+         (apply (actual-value (operator exp) env)
+                (operands exp)
+                env))
+        (else (error "Unknown expression type: EVAL" exp))))
+#+END_SRC
+
+Whenever we need the actual value of an expression, we use below instead of just eval, so that if the expression's value is a thunk, it will be forced. 
+
+#+BEGIN_SRC scheme
+(define (actual-value exp env)
+  (force-it (eval exp env)))
+#+END_SRC
+
+Our new version of apply is also similar to the previous version 
+
+#+BEGIN_SRC scheme
+; original
+(define (apply procedure arguments)
+  (cond ((primitive-procedure? procedure)
+         (apply-primitive-procedure procedure arguments))
+        ((compound-procedure? procedure)
+         (eval-sequence (procedure-body procedure)
+                        (extend-environment
+                         (procedure-parameters procedure)
+                         arguments
+                         (procedure-environment procedure))))
+        (else (error "Unknown procedure type: APPLY" procedure))))
+
+; lazy 
+(define (apply procedure arguments)
+  (cond ((primitive-procedure? procedure)
+         (apply-primitive-procedure
+          procedure
+          (list-of-arg-values arguments env))) ; changed
+        ((compound-procedure? procedure)
+         (eval-sequence
+          (procedure-body procedure)
+          (extend-environment
+           (procedure-parameters procedure)
+           (list-of-delayed-args arguments env) ; changed 
+           (procedure-environment procedure))))
+        (else (error "Unknown Procedure Type: APPLY" procedure))))
+
+; helper functions
+(define (list-of-arg-values exps env)
+  (if (no-operands? exps)
+      '()
+      (cons (actual-value
+             (first-operand exps)
+             env)
+            (list-of-arg-values
+             (rest-operands exps)
+             env))))
+
+(define (list-of-delayed-args exps env)
+  (if (no-operands? exps)
+      '()
+      (cons (delay-it
+             (first-operand exps)
+             env)
+            (list-of-delayed-args
+             (rest-operands exps)
+             env))))
+#+END_SRC
+
+We must also change the handling of if, where we must use actual-value instead of eval. 
+
+#+BEGIN_SRC scheme
+(define (eval-if exp env)
+  (if (true? (actual-value (if-predicate exp) env))
+      (eval (if-consequent exp) env)
+      (eval (if-alternative exp) env)))
+#+END_SRC
+
+Finally we must change the driver-loop procedure to use actual-value instead of eval, so that if a delayed value is propagated back to the REPL, it will be forced before printin. 
+
+#+BEGIN_SRC scheme
+(define input-prompt ";;; L-Eval Input:")
+(define output-prompt ";;; L-Eval Value:")
+
+(define (driver-loop)
+  (prompt-for-input input-prompt)
+  (let ((input (read)))
+    (let ((output (actual-value
+                   input
+                   the-global-environment)))
+      (announce-output output-prompt)
+      (user-print output)))
+  (driver-loop))
+
+(define the-global-environment (setup-environment))
+
+(driver-loop)
+#+END_SRC
+
+** Representing Thunks 
+
+Our evaluator must arrange to create thunks when procedures are applied to arguments and to force those thunks later. A thunk must package an expression together with the environment, so that the argument can be produced later. 
+
+#+BEGIN_SRC scheme
+(define (force-it obj)
+  (if (thunk? obj)
+      (actual-value (thunk-exp obj)
+                    (thunk-env obj))
+      obj))
+
+(define (delay-it exp env)
+  (list 'thunk exp env))
+
+(define (thunk-exp thunk)
+  (cadr thunk))
+
+(define (thunk-env thunk)
+  (caddr thunk))
+
+; implement memoized thunks
+(define (evaluated-thunk? obj)
+  (tagged-list? obj 'evaluated-thunk))
+
+(define (thunk-value evaluated-thunk)
+  (cadr evaluated-thunk))
+
+(define (force-it obj)
+  (cond ((thunk? obj)
+         (let ((result (actual-value (thunk-exp obj)
+                                     (thunk-env obj))))
+           (set-car! obj 'evaluated-thunk)
+           ;; replace exp with its value
+           (set-car! (cdr obj) result)
+           ;; forget unneeded env
+           (set-cdr! (cdr obj) '())
+           result))
+        ((evaluated-thunk? obj)
+         (thunk-value obj))
+        (else obj)))
+#+END_SRC
