@@ -10,4 +10,35 @@ A high level implementation base makes it easier to snarf features from the unde
 
 ** Normal Order and Applicative Order 
 
+#+BEGIN_SRC scheme
+(define (unless condition usual-value exceptional-value)
+  (if condition
+      exceptional-value
+      usual-value))
+
+(unless (= b 0)
+  (/ a b)
+  (begin (display "exception: returning 0")
+         0))
+#+END_SRC
+
+If the body of a procedure is entered before an argument has been evaluated we say that the procedure is non-strict in that argument. If the argument is evaluated before the body of the procedure is entered, we say that the procedure is strict in that argument. 
+
+*** Exercise 4.25 
+
+Suppose we define unless as shown above and then define factorial in terms of unless as 
+
+#+BEGIN_SRC scheme
+(define (factorial n)
+  (unless (= n 1)
+    (* n (factorial (- n 1)))
+    1))
+
+(factorial 5)
+#+END_SRC
+
+We get maximum recursion depth exceeded. This is because it is evaluating the factorial in the body of unless, even when n = 1. So we get n = 0, n = -1, etc 
+
+*** Exercise 4.26 
+
 
