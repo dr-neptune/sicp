@@ -61,7 +61,6 @@ We get maximum recursion depth exceeded. This is because it is evaluating the fa
            (unless-alternative exp)))
 #+END_SRC
 
-
 ** An Interpreter with Lazy Evaluation 
 
 In this section we implement a normal-order language that is the same as Scheme except that compound procedures are non-strict in each argument. Primitive procedures will still be strict. 
@@ -245,3 +244,99 @@ Our evaluator must arrange to create thunks when procedures are applied to argum
          (thunk-value obj))
         (else obj)))
 #+END_SRC
+
+*** Exercise 4.27 
+
+count 
+0 
+w 
+10 
+count
+2
+
+
+*** Exercise 4.28 
+
+Eval uses actual-value rather than eval to evaluate the operator before passing it to apply, in order to force the value of the operator.
+
+Give an example that demonstrates the need for this forcing. 
+
+From scheme wiki
+
+#+BEGIN_SRC scheme
+(define (g x) (+ x 1))
+(define (f g x) (g x))
+
+(f g 10)
+#+END_SRC
+
+If we don't force the evaluation of g within f, g will remain a thunk which takes no arguments. Therefore, when (g x) is called within the body of f, we will be trying to supply the parameter x to a function which takes no parameters and an error will be signaled. 
+
+*** Exercise 4.29 
+
+Exhibit a program that you would expect to run much more slowly without memoization than with memoization. 
+
+The canonical example is the fibonacci function. For an example where memoization would hurt performance: 
+
+Consider a program for which each operation is only carried out once. Then we have the result overhead of running the function and the overhead of storing the values. 
+
+Give the responses below both when the evaluator memoizes and when it doesn't: 
+
+#+BEGIN_SRC scheme
+(define (square x) (* x x))
+#+END_SRC
+
+Without memoization 
+(square (id 10))
+100 
+count
+2
+
+with memoization 
+count = 1 
+
+** Streams as Lazy Lists 
+
+With lazy evaluation, streams and lists can be identical. All we need to do is to arrange matters so that cons is non-strict. The easiest way to do this is to simply overwrite the primitives:
+
+#+BEGIN_SRC scheme
+(define (cons2 x y) (lambda (m) (m x y)))
+(define (car2 z) (z (lambda p q) p))
+(define (cdr2 z) (z (lambda p q) q))
+#+END_SRC
+
+In terms of these basic operations, the standard definitions of the list operations will work with infinite lists (streams) as well as finite ones. 
+
+Here are some examples: 
+
+#+BEGIN_SRC scheme
+(define (list-ref items n)
+  (if (= n 0)
+      (car items)
+      (list-ref (cdr items) (- n 1))))
+
+(define (map proc items)
+  (if (null? items)
+      '()
+      (cons (proc (car items))
+            (map proc (cdr items)))))
+
+(define (scale-list items factor)
+  (map (lambda (x) (* x factor)) items))
+
+(define (add-lists l1 l2)
+  (cond ((null? l1) l2)
+        ((null? l2) l1)
+        (else (cons (+ (car l1)
+                       (car l2))
+                    (add-lists (cdr l1) (cdr l2))))))
+
+(define ones (cons2 1 ones))
+
+(define integers (cons 1 (add-lists integers ones)))
+#+END_SRC
+
+*** Exercise 4.32 
+
+As mentioned in the text, these lazy lists are different because both the car and cdr values are delayed. This could be useful (as noted in the footnote) for building other data structures, like lazy trees. 
+

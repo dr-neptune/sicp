@@ -1,0 +1,20 @@
+* Variations on a Scheme: Nondeterministic Computing 
+:PROPERTIES:
+:header-args: :session scheme :results verbatim raw
+:ARCHIVE:
+:END:
+
+In this section we extend the scheme evaluator to support a programming paradigm called nondeterministic computing by building into the evaluator a facility to support automatic search. 
+
+Imagine that we choose (in some way) a number from one list and a number from a second list and require (using some mechanism) that their sum be prime. This is expressed by the following procedure:
+
+#+BEGIN_SRC scheme
+(define (prime-sum-pair l1 l2)
+  (let ((a (an-element-of l1))
+        (b (an-element-of l2)))
+    (require (prime? (+ a b)))
+    (list a b)))
+#+END_SRC
+
+This is a legitimate nondeterministic program. By incorporating a search into our evaluator, we are eroding the distinction between imperative and declarative specifications of how to compute answers.
+
