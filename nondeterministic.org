@@ -16,5 +16,439 @@ Imagine that we choose (in some way) a number from one list and a number from a 
     (list a b)))
 #+END_SRC
 
+#+RESULTS:
+
 This is a legitimate nondeterministic program. By incorporating a search into our evaluator, we are eroding the distinction between imperative and declarative specifications of how to compute answers.
 
+The key idea here is that expressions in a nondeterministic language can have more than one possible value. Just as the lazy evaluator freed the programmer from the details of how values are delayed and forced, the nondeterministic program evaluator will free the programmer from details of how choices are made. 
+
+** Amb and Search 
+
+The extend scheme to support nondeterminism, we introduce a new special form called amb. 
+
+(amb e1 e2 ... en)
+
+returns the value of one of the n expressions "ambiguously"
+
+The expression (amb) with no arguments is an expression with no acceptable values, essentially causing the computation to fail. 
+
+#+BEGIN_SRC scheme
+; predicate that p must be true
+(define (require p)
+  (if (not p)
+      (amb)))
+
+(define (an-element-of items)
+  (require (not (null? items)))
+  (amb (car items)
+       (an-element-of (cdr items))))
+#+END_SRC
+
+We can also express infinite ranges of choices. The following procedure potentially returns any integer greater than or equal to some given n: 
+
+#+BEGIN_SRC scheme
+(define (an-integer-starting-from n)
+  (amb n (an-integer-starting-from (+ n 1))))
+#+END_SRC
+
+We say that amb represents a nondeterministic choice point. 
+
+The amb evaluator that we will develop and work with throughout this section implements a systematic search as follows: When the evaluator encounters an application of amb, it initially selects the first alternative. This selection may itself lead to a further choice. If a choice results in failure, then the evaluator automagically backtracks to the most recent choice point and tries the next alternative. If it runs out of alternatives at any choice point, the evaluator will back up to the previous choice point and resume from there. This strategy is known as depth-first-search or chronological backtracking. 
+
+*** Exercise 4.35 
+
+Write a procedure an-integer-between which returns an integer between two given bounds. 
+
+#+BEGIN_SRC scheme
+(define (an-integer-between a b)
+  (require (=< a b))
+  (amb a (an-integer-between (+ a 1) b)))
+#+END_SRC
+
+This case be used to implement a procedure that finds Pythagorean tuples, i.e. triples of integers (i, j, k) between the given bounds such that i leq j and i^2 + j^2 = k^2 as follows: 
+
+#+BEGIN_SRC scheme
+(define (a-pythagoren-triple-between low high)
+  (let* ((i (an-integer-between low high))
+         (j (an-integer-between i high))
+         (k (an-integer-between k high)))
+    (require (= (+ (* i i) (* j j)) (* k k)))
+    (list i j k)))
+#+END_SRC
+
+*** Exercise 4.36 
+
+Write a procedure for which repeatedly typing try-again would in principle eventually generate all Pythagorean triples. 
+
+#+BEGIN_SRC scheme
+(define (an-integer-above a)
+  (amb a (an-integer-above (+ a 1))))
+
+(define (a-pythagoren-triple-above low)
+  (let* ((k (an-integer-above low))
+         (i (an-integer-between low k))
+         (j (an-integer-between i k)))
+    (require (= (+ (* i i) (* j j)) (* k k)))
+    (list i j k)))
+#+END_SRC
+
+*** Exercise 4.37 
+
+Ben Bitdiddle claims that the following method for generating Pythagorean tuples is more efficient than the one in 4.35. Is he correct? (Consider the number of possibilities that must be explored)
+
+#+BEGIN_SRC scheme
+(define (a-pythagoren-triple-between low high)
+  (let ((i (an-integer-between low high))
+        (hsq (* high high)))
+    (let ((j (an-integer-between i high)))
+      (let (ksq (+ (* i i) (* j j))))
+      (require (>= hsq ksq))
+      (let ((k (sqrt ksq)))
+        (require (integer? k))
+        (list i j k)))))
+#+END_SRC
+
+let low = 3, high = 4. Then i could only be 3, j could only be 4. Therefore hsq is 16, and ksq is 25. Our requirement that hsq >= ksq would drop this triple.
+What about i = 5, j = 12, k = 13? 
+
+Then let low = 5, high = 13. The hsq = 169, ksq = 25 + 169 
+
+This must either be a typo (unlikely) or I am understanding it wrong 
+
+** Examples of Nondeterministic Programs 
+
+The next section shows the implementation of amb, but first we should look at some examples of how it can be used. The advantage of nondeterministic programming is that we can suppress details of how search is carried out, therefore expressing our programs at a higher level of abstraction. 
+
+Here is an example of a logic puzzle that may be solved using nondeterministic programming.
+
+Baker, Cooper, Fletcher, Miller, and Smith live on different
+floors of an apartment house that contains only five floors.
+Baker does not live on the top floor. Cooper does not live
+on the bottom floor. Fletcher does not live on either the
+top or the bottom floor. Miller lives on a higher floor than
+does Cooper. Smith does not live on a floor adjacent to
+Fletcher’s. Fletcher does not live on a floor adjacent to
+Cooper’s. Where does everyone live?
+
+We can determine who lives on each floor in a straight-forward way by enumerating all the possibilities and imposing the given restrictions: 
+
+#+BEGIN_SRC scheme
+; my try
+(define (multiple-dwelling)
+  (let ((baker    (amb 1 2 3 4 5))
+        (cooper   (amb 1 2 3 4 5))
+        (fletcher (amb 1 2 3 4 5))
+        (smith    (amb 1 2 3 4 5)))
+    (require (distinct? (list baker cooper fletcher miller smith)))
+    (require (not (= baker 5)))
+    (require (not (= cooper 1)))
+    (require (not (or (= fletcher 5)
+                      (= fletcher 1))))
+    (require (> miller cooper))
+    (require (not (or (= (+ 1 smith) fletcher)
+                      (= (- 1 smith) fletcher))))
+    (require (not (or (= (+ 1 fletcher) cooper)
+                      (= (- 1 fletcher) cooper))))
+    ; i got everything except for listing the values d'oh
+    (list (list 'baker baker)
+          (list 'cooper cooper)
+          (list 'fletcher fletcher)
+          (list 'miller miller)
+          (list 'smith smith))))
+
+; book definition of distinct?
+(define (distinct? items)
+  (cond ((null? items) true)
+        ((null? (cdr items)) true)
+        ((member (car items) (cdr items)) false)
+        (else (distinct? (cdr items)))))
+#+END_SRC
+
+There are a bunch of exercises, but they mainly seem to focus around running and writing these kinds of search programs. 
+
+*** Exercise 4.38 
+
+Modify the multiple dwelling procedure to omit the requirement that Smith and Fletcher do not live on adjacent floors. 
+
+#+BEGIN_SRC scheme
+(define (multiple-dwelling)
+  (let ((baker    (amb 1 2 3 4 5))
+        (cooper   (amb 1 2 3 4 5))
+        (fletcher (amb 1 2 3 4 5))
+        (smith    (amb 1 2 3 4 5)))
+    (require (distinct? (list baker cooper fletcher miller smith)))
+    (require (not (= baker 5)))
+    (require (not (= cooper 1)))
+    (require (not (or (= fletcher 5)
+                      (= fletcher 1))))
+    (require (> miller cooper))
+    (require (not (or (= (+ 1 fletcher) cooper)
+                      (= (- 1 fletcher) cooper))))
+    ; i got everything except for listing the values d'oh
+    (list (list 'baker baker)
+          (list 'cooper cooper)
+          (list 'fletcher fletcher)
+          (list 'miller miller)
+          (list 'smith smith))))
+#+END_SRC
+
+How many solutions are there to this modified puzzle? 
+
+Good question 
+
+*** Exercise 4.39 
+
+Does the order of the restrictions in the multiple-dwelling procedure affect the answer?
+
+The order of imposing the restrictions should not affect the final number of results 
+
+Does it affect the time to find an answer? 
+
+The order does affect the time it takes to find an answer. We would want to remove the largest chunks of bad answers early on in order make the data that (distinct?) has to eval through as small as possible. This is because our (distinct?) function runs in quadratic time. 
+
+If you think it matters, demonstrate a faster program obtained from the given one by reordering the restrictions
+
+#+BEGIN_SRC scheme
+(define (multiple-dwelling)
+  (let ((baker    (amb 1 2 3 4 5))
+        (cooper   (amb 1 2 3 4 5))
+        (fletcher (amb 1 2 3 4 5))
+        (smith    (amb 1 2 3 4 5)))
+    (require (not (or (= fletcher 5)
+                      (= fletcher 1))))
+    (require (not (> (abs (- smith fletcher)) 1)))
+    (require (not (> (abs (- cooper fletcher)) 1)))
+    (require (not (= baker 5)))
+    (require (not (= cooper 1)))
+    (require (> miller cooper))
+    (require (distinct? (list baker cooper fletcher miller smith)))
+    ; i got everything except for listing the values d'oh
+    (list (list 'baker baker)
+          (list 'cooper cooper)
+          (list 'fletcher fletcher)
+          (list 'miller miller)
+          (list 'smith smith))))
+#+END_SRC
+
+*** Exercise 4.40 
+
+In the multiple dwelling problem, how many sets of assignments are there of people to floors, both before and after the requirement that floor assignments be distinct? 
+
+Before: 5^5 = 3125, after 5! = 120
+
+It is very inefficient to generate all possible assignments of people to floors and then leave it to backtracking to eliminate them. For example, most of the restrictions depend on only one or two of the person-floor variables and can thus be imposed before floors have been selected for all the people. 
+
+Write and demonstrate a more efficient nondeterministic procedure that solves this problem based upon generating only those possibilities that are not already ruled out by previous restrictions.
+
+#+BEGIN_SRC scheme
+(define (multiple-dwelling)
+  (let ((baker (amb 1 2 3 4))
+        (let ((cooper (amb 2 3 4 5))
+              (let ((fletcher (amb 2 3 4))
+                    (let ((miller (amb 3 4 5))
+                          (require (distinct? (list baker cooper fletcher miller)))
+                          (require (and (> (abs (- fletcher smith)) 1)
+                                        (> (abs (- fletcher cooper)) 1))))))))))
+    (list (list 'baker baker)
+          (list 'cooper cooper)
+          (list 'fletcher fletcher)
+          (list 'miller miller)
+          (list 'smith smith))))
+#+END_SRC
+
+*** Exercise 4.41 
+
+Write an ordinary scheme program to solve the multiple dwelling problem 
+
+The idea is the following: generate all permutations of distinct numbers and then filter according to the requirements
+
+#+BEGIN_SRC scheme
+; generate permutations
+(define (accumulate op initial sequence) 
+  (if (null? sequence) 
+   initial
+   (op (car sequence) 
+     (accumulate op initial (cdr sequence))))) 
+
+(define (flatmap proc seq) 
+  (accumulate append '() (map proc seq)))
+
+(define (permutations ls)
+  (if (null? ls)
+      (list '())
+      (flatmap (lambda (first)
+                 (map (lambda (rest)
+                        (cons first rest))
+                      (permutations (filter (lambda (x) (not (= x first))) ls))))
+               ls)))
+
+; get requirements 
+(define (requirements ls)
+  (apply
+   (lambda (b c f m s)
+     (and (> m c)
+          (> (abs (- s f)) 1)
+          (> (abs (- c f)) 1)
+          (distinct? (list b c f m s))))
+   ls))
+
+(define (multiple-dwelling)
+    (filter requirements (permutations (list 1 2 3 4 5))))
+#+END_SRC
+
+*** Exercise 4.42 
+
+Solve the following liars puzzle
+
+Five schoolgirls sat for an examination. Their parents—so they
+thought—showed an undue degree of interest in the result. They
+therefore agreed that, in writing home about the examination, each
+girl should make one true statement and one untrue one. The following
+are the relevant pas- sages from their letters:
+
+- Betty: “Kitty was second in the examination. I was only third.”
+- Ethel: “You’ll be glad to hear that I was on top. Joan was 2nd.”
+- Joan: “I was third, and poor old Ethel was bottom.”
+- Kitty: “I came out second. Mary was only fourth.”
+- Mary: “I was fourth. Top place was taken by Betty.”
+
+What in fact was the order in which the five girls were placed?
+
+These are all exclusive or statements.
+
+#+BEGIN_SRC scheme
+(define (xor a b)
+  (if a
+      (not b)
+      b))
+
+(define (liars-puzzle)
+  (let ((b (amb 1 2 3 4 5))
+        (e (amb 1 2 3 4 5))
+        (j (amb 1 2 3 4 5))
+        (k (amb 1 2 3 4 5))
+        (m (amb 1 2 3 4 5)))
+    (require (xor (= k 2) (= b 3)))
+    (require (xor (= e 1) (= j 2)))
+    (require (xor (= j 3) (= e 5)))
+    (require (xor (= k 2) (= b 1)))
+    (require (xor (= m 4) (= b 1)))
+    (require (distinct? (list b e j k m)))
+    (list b e j k m)))
+#+END_SRC
+
+*** Parsing Natural Language 
+
+Programs that accept natural language usually start by attempting to parse the input
+
+#+BEGIN_SRC scheme
+(define nouns '(noun student professor cat class))
+(define verbs '(verb studies lectures eats sleep))
+(define articles '(article the a))
+#+END_SRC
+
+We also need a grammar - a set of rules describing how grammatical elements are composed from simpler elements.
+
+To parse a sentence, we identify its two constituent pieces and return a list of these two elements, tagged with the symbol sentence:
+
+#+BEGIN_SRC scheme
+(define (parse-sentence)
+  (list 'sentence
+        (parse-noun-phrase)
+        (parse-word verbs)))
+
+(define (parse-noun-phrase)
+  (list 'noun-phrase
+        (parse-word articles)
+        (parse-word nouns)))
+#+END_SRC
+
+At the lowest level, parsing boils down to repeatedly checking that the next unparsed word is a member of the list of words for the required part of speech. 
+
+To implement this, we maintain a global variable *unparsed* which is the input that hasn't been parsed. 
+
+#+BEGIN_SRC scheme
+(define (parse-word word-list)
+  (require (not (null? *unparsed*)))
+  (require (memq (car *unparsed*)
+                 (cdr word-list)))
+  (let ((found-word (car *unparsed*)))
+    (set! *unparsed* (cdr *unparsed*))
+    (list (car word-list)
+          found-word)))
+
+; to start parsing we set *unparsed* to be the entire input, try to parse a sentence, and check that nothing is left over
+(define *unparsed* '())
+
+(define (parse input)
+  (set! *unparsed* input)
+  (let ((sent (parse-sentence)))
+    (require (null? *unparsed*))
+    sent))
+
+(parse '(the cat eats))
+#+END_SRC
+
+The amb evaluator is useful here because it is convenient to express the parsing constraints with the aid of require. 
+
+#+BEGIN_SRC scheme
+(define prepositions '(prep for to in by with))
+
+(define (parse-prepositional-phrase)
+  (list 'prep-phrase
+        (parse-word prepositions)
+        (parse-noun-phrase)))
+
+; express sentences as noun phrase -> verb phrase, where verb phrase is either a verb or a verb phrase extended by a prepositional phrase
+(define (parse-sentence)
+  (list 'sentence
+        (parse-noun-phrase)
+        (parse-verb-phrase)))
+
+(define (parse-verb-phrase)
+  (define (maybe-extend verb-phrase)
+    (amb verb-phrase
+         (maybe-extend
+          (list 'verb-phrase
+                verb-phrase
+                (parse-prepositional-phrase)))))
+  (maybe-extend (parse-word verbs)))
+#+END_SRC
+
+We can also elaborate the definition of noun phrases to permit such things as "a cat in a class". 
+
+#+BEGIN_SRC scheme
+(define (parse-simple-noun-phrase)
+  (list 'simple-noun-phrase
+        (parse-word articles)
+        (parse-word nouns)))
+
+(define (parse-noun-phrase)
+  (define (maybe-extend noun-phrase)
+    (amb noun-phrase
+         (maybe-extend
+          (list 'noun-phrase
+                noun-phrase
+                (parse-prepositional-phrase)))))
+  (maybe-extend (parse-simple-noun-phrase)))
+#+END_SRC
+
+*** Exercise 4.46 
+
+#+BEGIN_SRC scheme
+(define (parse-word word-list)
+  (require (not (null? *unparsed*)))
+  (require (memq (car *unparsed*)
+                 (cdr word-list)))
+  (let ((found-word (car *unparsed*)))
+    (set! *unparsed* (cdr *unparsed*))
+    (list (car word-list)
+          found-word)))
+
+; try reversing parse-word
+(define (parse-word word-list)
+  ())
+
+(define *unparsed* '(word))
+
+#+END_SRC
