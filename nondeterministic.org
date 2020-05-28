@@ -413,6 +413,7 @@ The amb evaluator is useful here because it is convenient to express the parsing
                 verb-phrase
                 (parse-prepositional-phrase)))))
   (maybe-extend (parse-word verbs)))
+
 #+END_SRC
 
 We can also elaborate the definition of noun phrases to permit such things as "a cat in a class". 
@@ -433,7 +434,15 @@ We can also elaborate the definition of noun phrases to permit such things as "a
   (maybe-extend (parse-simple-noun-phrase)))
 #+END_SRC
 
+*** Exercise 4.45 
+
+pass 
+
 *** Exercise 4.46 
+
+The evaluators in previous sections do not determine what order operands are evaluated in. We will see that amb evaluates left to right. Explain why our parsing program won't work if the operands were evaluated in some other order. 
+
+Our function parse-word evaluates words left to right: 
 
 #+BEGIN_SRC scheme
 (define (parse-word word-list)
@@ -444,11 +453,76 @@ We can also elaborate the definition of noun phrases to permit such things as "a
     (set! *unparsed* (cdr *unparsed*))
     (list (car word-list)
           found-word)))
-
-; try reversing parse-word
-(define (parse-word word-list)
-  ())
-
-(define *unparsed* '(word))
-
 #+END_SRC
+
+If we were to parse words in a language that read right to left, or some other order (maybe up -> down right -> left) then we would have to rewrite this parsing function.
+
+
+*** Exercise 4.47 
+
+Louis Reasoner suggests that it would be more straightforward to define the procedures parse-verb-phrase as follows (and similar for noun phrases) : 
+
+#+BEGIN_SRC scheme
+(define (parse-verb-phrase)
+  (amb (parse-word verbs)
+       (list 'verb-phrase
+             (parse-verb-phrase)
+             (parse-prepositional-phrase))))
+#+END_SRC
+
+Does this work? 
+
+This will call itself infinitely due to the call to itself as the second argument to amb
+
+Does the program's behavior change if we interchange the order of expressions in the amb?
+
+Even if we change the order, it will call itself again without any base case 
+
+*** Exercise 4.48 
+
+Extend the grammar given above to handle more complex sentences. 
+
+*** Exercise 4.49 
+
+Alyssa P. Hacker is more interested in generating interesting sentences than in parsing them. 
+
+The last two exercises are probably more interesting with a working amb evaluator 
+
+** Implementing the amb Evaluator 
+
+The evolution of a normal scheme expression may return a value, may never terminate, or may signal an error. In nondeterministic scheme, the evaluation of an expression may in addition result in the discovery of a dead end, in which case evaluation must backtrack to a previous choice point. 
+
+** Execution Procedures and Continuations 
+
+The execution procedures for the ordinary evaluator take one argument: the environment of execution. In contrast, the execution procedures in the amb evaluator take 3 arguments: the environment, and two procedures called continuation procedures. 
+
+The evaluation of an expression will result in calling one of these two continuations: 
+
+If the evaluation results in a value, we call the success continuation with that value. It is the job of the success continuation to receive a value and proceed with the computation. Along with that value, the success continuation is passed another failure continuation, which is to be called subsequently if the use of that value leads to a dead end. 
+
+If the evaluation results in the discovery of a dead end, the failure continuation is called. It is the job of the failure continuation to try another branch of the nondeterministic process. The evaluator picks one of the alternatives and passes this value to the success continuation. Together with this value, the evaluator constructs and passes along a failure continuation that can be called later to choose a different alternative. 
+
+Constructing and calling appropriate continuations is the mechanism by which the nondeterministic evaluator implements backtracking. 
+
+A failure is triggered when a user program explicitly rejects the current line of attack. This causes it to choose the most recent choice point to choose another alternative. If there are no more choices, it backtracks again to the last choice point, and so on. 
+
+failure continuations are constructed by 
+
+- amb expressions -- to provide a mechanism to make alternative choices if the current choice made by the amb expression leads to a dead end
+- the top level driver -- to provide a mechanism to report failure when the choices are exhausted
+- assignments -- to intercept failures and undo assignments during backtracking 
+
+failures are initiated when a dead end is encountered. This occurs 
+
+- if the user program executes (amb)
+- if the user types try-again at the top-level driver 
+
+failure continuations are also called during processing of a failure
+
+- when the failure continuation created by an assignment finishes undoing a side effect, it calls the failure continuation it intercepted in order to propagate the failure back to the choice point that led to this assignment or to the top level
+- when the failure continuation for an amb runs out of choices, it calls the failure continuation that was originally given to the amb, in order to propagate the failure back to the previous choice point or to the top level 
+
+** Structure of the Evaluator 
+
+The syntax and data-representation procedures for the amb evaluator, and also the basic analyze procedure, are identical to those in the earlier evaluator except for the additional syntax needed for recognizing the special amb form: 
+
