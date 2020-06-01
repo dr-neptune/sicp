@@ -1,0 +1,28 @@
+* Logic Programming 
+:PROPERTIES:
+:header-args: :session scheme :results verbatim raw
+:ARCHIVE:
+:END:
+
+In a nondeterministic language, expressions can have more than one value, and, as a result, the computation is dealing with relations rather than with single-valued functions. Logic programming extends this idea by combining a relational vision of programming with a powerful kind of symbolic pattern matching called unification. 
+
+When this approach works, we get a very powerful way to write programs. Part of that power comes from the fact that a single "what is" fact can be used to solve a number of different problems that would have different "how to" components. 
+
+** Deductive Information Retrieval
+
+Logic programming excels in providing interfaces to databases for information retrieval. 
+
+** Simple Queries 
+
+The query language allows users to retrieve information from the database by posing queries in response to the system's prompt. 
+
+#+BEGIN_SRC scheme
+; query
+(job ?x (computer programmer))
+
+; results
+(job (Hacker Alyssa P) (computer programmer))
+(job (Fect Cy D) (computer programmer))
+#+END_SRC
+
+The input query specifies that we are looking for entries in the database that match a certain pattern. 
