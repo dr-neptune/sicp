@@ -26,3 +26,155 @@ The query language allows users to retrieve information from the database by pos
 #+END_SRC
 
 The input query specifies that we are looking for entries in the database that match a certain pattern. 
+
+We can describe the query language's processing of simple queries as follows: 
+
+- The system finds all assignments to variables in the query pattern that satisfy the pattern -- that is, all sets of values for the variables such that if the pattern variables are instantiated with (replaced by) the values, the result is in the database.
+- The system responds to the query by listing all instantiations of the query pattern with the variable assignments that satisfy it 
+
+*** Exercise 4.55 
+
+Give simple queries that retrieve the following information from the database: 
+
+1. All people supervised by Ben Bitdiddle 
+
+#+BEGIN_SRC scheme
+(supervisor ?x (Bitdiddle Ben))
+#+END_SRC
+
+2. The names and jobs of all people in the accounting division 
+
+#+BEGIN_SRC scheme
+(job ?x (accounting . ?type))
+#+END_SRC
+
+3. The names and addresses of all people who live in slumerville 
+
+#+BEGIN_SRC scheme
+(address ?x (Slumerville . ?type))
+#+END_SRC
+
+** Compound Queries 
+
+One thing that makes the query language a logic programming language is that the means of combination mirror the means of combination used in forming logical expressions: and, or, and not. 
+
+We can chain them together like so: 
+
+#+BEGIN_SRC scheme
+(and (job ?person (computer programmer))
+     (address ?person ?where))
+#+END_SRC
+
+In general, (and (q1)(q2)...(qn)) is satisfied by all sets of values for the pattern variables that simultaneously satisfy queries 1 through n. 
+The same holds for or and not 
+
+There is also a combining form called lisp-value. When lisp-value is the first element of a pattern, it specifies the next element is a lisp predicate to be applied to the rest of the instantiated elements as arguments. In general (lisp-value predicate arg1 ... argn) will be satisfied by assignments to the pattern variables for which the predicate applied to the instantiated arg1 ... argn is true. 
+
+for example: 
+
+#+BEGIN_SRC scheme
+(and (salary ?person ?amount)
+     (lisp-value > ?amount 30000))
+#+END_SRC
+
+*** Exercise 4.56 
+
+Formulate compound queries that retrieve the following information: 
+
+1. The names of all people who are supervised by Ben Bitdiddle and their addresses 
+
+#+BEGIN_SRC scheme
+(and (supervisor ?person (Bitdiddle Ben))
+     (address ?person ?where))
+#+END_SRC
+
+2. All people whose salary is less than Bens, together with their salary and Bens salary 
+
+#+BEGIN_SRC scheme
+(and (salary (Bitdiddle Ben) ?amount)
+     (salary ?person (lisp-value <= ?new-sal ?amount)))
+#+END_SRC
+
+3. All people who are supervised by someone who is not in the computer division, together with the supervisor's name and job 
+
+#+BEGIN_SRC scheme
+(and (supervisor ?person ?boss)
+     (not (job ?boss (computer . ?type)))
+     (job ?boss ?job))
+#+END_SRC
+
+** Rules 
+
+In addition to primitive queries and compound queries, the query language provides means for abstracting queries. These are given by rules. 
+
+The rule 
+
+#+BEGIN_SRC scheme
+(rule (lives-near ?person-1 ?person-2)
+      (and (address ?person-1 (?town . ?rest-1))
+           (address ?person-2 (?town . ?rest-2))
+           (not (same ?person-1 ?person-2))))
+#+END_SRC
+
+specifies that two people live near each other if they live in the same town. 
+
+The same relation is specified by a very simple rule 
+
+#+BEGIN_SRC scheme
+(rule (same ?x ?x))
+#+END_SRC
+
+The following rule declares that a person is a wheel in an organization if they supervise someone who is in turn a supervisor: 
+
+#+BEGIN_SRC scheme
+(rule (wheel ?person)
+      (and (supervisor ?middle-manager ?person)
+           (supervisor ?x ?middle-manager)))
+#+END_SRC
+
+The general form of a rule is 
+
+#+BEGIN_SRC scheme
+(rule <conclusion> <body>)
+#+END_SRC
+
+where conclusion is a pattern and body is any query. 
+
+As in the case of compound procedures, rules can be used as parts of other rules, or even be defined recursively
+
+For instance, this rule says that a staff person is outranked by a boss in the organization if the boss is the person's supervisor, or (recursively) if the person's supervisor is outranked by the boss. 
+
+#+BEGIN_SRC scheme
+(rule (outranked-by ?staff-person ?boss)
+      (or (supervisor ?staff-person ?boss)
+          (and (supervisor ?staff-person ?middle-manager)
+               (outranked-by ?middle-manager ?boss))))
+#+END_SRC
+
+*** Exercise 4.57 
+
+Define a rule that says that person 1 can replace person 2 if either person 1 does the same job as person 2 or someone who does person 1's job can also do person 2's job, and if person 1 and person 2 are not the same person 
+
+#+BEGIN_SRC scheme
+(rule (replace ?person1 ?person2)
+      (and
+       ; get p1 job 
+       (job ?person1 ?job1)
+       ; get p2 job
+       (job ?person2 ?job2)
+       ; does p1 do the same job as p2? 
+       (or (can-do-job ?person1 ?job2)
+           ; can someone else do both jobs?
+           (and (can-do-job ?person3 ?job1)
+                (can-do-job ?person3 ?job2)))
+       ; is anyone the same?
+       (and (not (same ?person1 ?person2))
+            (not (same ?person2 ?person3)))))
+#+END_SRC
+
+Using your rule, give queries that find the following: 
+
+1. All people who can replace Cy D. Fect 
+
+2. All people who can replace someone who is being paid more than they are, together with the two salaries
+

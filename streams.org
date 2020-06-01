@@ -9,7 +9,7 @@ From an abstract point of view, a stream is simply a sequence. As an alternative
 
 Stream processing allows us to model systems that have state without ever using assignment or mutable data. 
 
-** Streams are Delayed Lists 
+** Streams are Delayed Lists
 
 #+BEGIN_SRC scheme
 (define (square x)
@@ -138,7 +138,7 @@ As a data abstraction, streams are the same as lists. The difference is the time
 Our implementation of streams will be based on a special form called (delay exp). Evaluating (delay exp) doesn't evaluate exp, but returns a delayed object which we can think of as a promise to evaluate exp at some future time. As a companion, there is a procedure called force that takes a delayed object as an argument and performs the evaluation -- in effect forcing delay to fulfill its promise.
 
 cons-stream is a special form defined so that
-(cons-stream a b) is equivalent to (con a (delay b))
+(cons-stream a b) is equivalent to (cons a (delay b))
 
 This means we will construct streams using pairs. Rather than placing the value of the rest of the stream into the cdr of the pair we will put a promise to compute the rest if it is ever requested. 
 
@@ -149,7 +149,6 @@ This means we will construct streams using pairs. Rather than placing the value 
 (define (stream-cdr stream)
   (force (cdr stream)))
 #+END_SRC
-
 
 ** The Stream Implementation in Action
 
@@ -189,7 +188,7 @@ Let us analyze the outrageous prime computations reformulated in terms of stream
 
 In general, we can think of delayed evaluation as "demand driven" programming, whereby each stage in the stream process is activated only enough to satisfy the next stage. 
 
-** Implementing delay and force 
+** Implementing delay and force
 
 delay must package an expression so that it can be evaluated later on demand, and we can accomplish this by simply treating the expression as the body of a procedure. delay can be  a special form such that (delay exp) is syntactic sugar for (lambda () exp)
 
@@ -197,7 +196,7 @@ force simply calls the procedure (of no arguments) produced by delay, so we can 
 
 (define (force delayed-object) (delayed-object))
 
-In order to stop inefficiency with repeated evaluations of the same delayed object, we can build the objects so that the first time they are forced, we store the value they computed. We implement delay as a special-purpose memoized procedure. 
+In order to stop inefficiency with repeated evaluations of the same delayed object, we can build the objects so that the first time they are forced, we store the value they computed. We implement delay as a special-purpose memoized procedure.
 
 #+BEGIN_SRC scheme
 (define (memo-proc proc)
@@ -216,7 +215,6 @@ delay is then defined so that (delay exp) is equivalent to
 
 (memo-proc (lambda () exp))
 
-
 *** Exercise 3.50 
 
 Complete the following definition, which generalizes stream-map to allow procedures that take multiple arguments, analogous to map 
@@ -231,8 +229,6 @@ Complete the following definition, which generalizes stream-map to allow procedu
               (cons proc (map <??> argstreams))))))
 #+END_SRC
 
-
-
 #+BEGIN_SRC scheme
 (define (stream-map proc . argstreams)
   (if (stream-null? (car argstreams))
@@ -242,7 +238,6 @@ Complete the following definition, which generalizes stream-map to allow procedu
        (apply stream-map
               (cons proc (map stream-cdr argstreams))))))
 #+END_SRC
-
 
 *** Exercise 3.51 
 
@@ -355,7 +350,6 @@ What is the value of sum after each of the above expressions is evaluated?
 sum
 #+END_SRC
 
-
 #+BEGIN_SRC scheme
 (define (accum x)
   (set! sum (+ x sum))
@@ -408,7 +402,7 @@ What is the printed response to evaluating the stream-ref and display-stream exp
 
 Would these responses differ if we had implemented (delay exp) simply as (lambda () exp) without using the optimization provided by memo-proc? explain.
 
-** Infinite Streams 
+** Infinite Streams
 
 We can use streams to represent sequences which are infinitely long. 
 
@@ -429,15 +423,12 @@ We can use streams to represent sequences which are infinitely long.
 (stream-ref no-sevens 100)
 #+END_SRC
 
-
-
 #+BEGIN_SRC scheme
 (define (fibgen a b)
   (cons-stream a (fibgen b (+ a b))))
 
 (define fibs (fibgen 0 1))
 #+END_SRC
-
 
 We can generalize the no-sevens example to construct an infinite stream of prime numbers, using a method known as the sieve of Eratosthenes. 
 
@@ -458,10 +449,9 @@ To sieve a stream S, form a sieve whose first element is the first element of S 
 (stream-ref primes 500)
 #+END_SRC
 
+** Defining Streams Implicitly
 
-** Defining Streams Implicitly 
-
-The integers and fibs streams above were defined by specifying generating procedures that explicitly compute the stream elements one by one. An alternate way to specify streams is to take advantage of delayed evaluation to define streams implicitly. 
+The integers and fibs streams above were defined by specifying generating procedures that explicitly compute the stream elements one by one. An alternate way to specify streams is to take advantage of delayed evaluation to define streams implicitly.
 
 #+BEGIN_SRC scheme
 (define ones (cons-stream 1 ones))
@@ -662,7 +652,6 @@ What are the successive elements produced by (expand 1 7 10)?
 (expand 1 7 10)
 #+END_SRC
 
-
 1 4 2 8 5 7
 
 10 // 7 == 1 
@@ -674,9 +663,9 @@ What are the successive elements produced by (expand 1 7 10)?
 60 // 7 == 8 
 ... 
 
-What about (expand 3 8 10)? 
+What about (expand 3 8 10)?
 
-1 7 5 0 0 0 ... 0 0 0 
+1 7 5 0 0 0 ... 0 0 0
 
 This is the result of the floating point integer with the base being radix. 
 
@@ -774,12 +763,11 @@ Given: In other words, X is the power series whose constant term is 1 and whose 
 #+END_SRC
 
 
-
-** Exploiting the Stream Paradigm 
+** Exploiting the Stream Paradigm
 
 The stream approach can be illuminating because it allows us to build systems with different module boundaries than systems organized around assignment to state variables. We can think of an entire time series (or signal) as a focus of interest, rather than the value of the state variables at individual moments. This makes it convenient to combine and compare components of state from different moments. 
 
-** Formulating Iterations as Stream Processes 
+** Formulating Iterations as Stream Processes
 
 We now know that we can represent state as a timeless stream of values rather than as a set of variables to be updated. 
 
@@ -1067,7 +1055,7 @@ Now to accelerate it.
 
 This method converges within 10 steps, and looks great by the 3rd step 
 
-** Infinite Streams of Pairs 
+** Infinite Streams of Pairs
 
 If we generalize this technique to infinite streams, then we can write programs that are not easily represented as loops, because the looping must range over an infinite set. 
 
@@ -1099,9 +1087,6 @@ We can form a stream of pairs as follows:
     (pairs (stream-cdr s)
            (stream-cdr t)))))
 #+END_SRC
-
-
-
 
 In order to complete the procedure, we must choose some way to combine the two inner streams 
 
@@ -1553,8 +1538,6 @@ We can use streams to model signal-processing systems in a very direct way, repr
 #+END_SRC
 
 
-integral
-
 *** Exercise 3.73 
 
 Write a procedure RC that models the given circuit 
@@ -1625,8 +1608,7 @@ make-zero-crossings
 
 This doesn't work. Find the bug and fix it without changing the structure of the program.
 
-
-** Streams and Delayed Evaluation 
+** Streams and Delayed Evaluation
 
 In general, delay is required to use streams to model signal-processing systems that contain loops. Without delays, our models would have to be formulated so that the inputs to any signal-processing component would be fully evaluated before any output could be produced. This would outlaw loops. 
 
@@ -1737,9 +1719,7 @@ solve-2nd
 
 Generalize the solve-2nd procedure so that it can be used to solve general second order differential equations d2y/dt2 = f(dy/dt, y)
 
-nah 
-
-** Normal-Order Evaluation 
+** Normal-Order Evaluation
 
 By using delay and force, we have created two classes of procedures:
 
@@ -1750,7 +1730,7 @@ In general, creating separate classes of procedures forces us to create separate
 
 One way to avoid this dilemma is to make all procedures lazily evaluated (called normal order evaluation in chapter 1).
 
-** Modularity of Functional Programs and Modularity of Objects 
+** Modularity of Functional Programs and Modularity of Objects
 
 One of the major benedits of introducing assignment is that we can increase the modularity of our systems by encapsulating, or hiding, parts of the state of a large system within local variables. Stream models can provide an equivalent modularity without the use of assignment. 
 
@@ -1865,5 +1845,3 @@ Here is the original solution:
 #+END_SRC
 
 ** A functional programming view of time 
-
-
