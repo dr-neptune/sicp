@@ -325,14 +325,96 @@ What will be the response for the following queries?
 Define rules to implement the last-pair operation, which returns a list containing the last element of a nonempty list.
 
 #+BEGIN_SRC scheme
-
+(rule (last-pair (?x) (?x)))
+(rule (last-pair (?u . ?v) ?x)
+      (last-pair ?v (?x)))
 #+END_SRC
 
 Check the rules on queries like 
 
 #+BEGIN_SRC scheme
 (last-pair (3) ?x)
+
+; result
+(last-pair (3) (3))
+
 (last-pair (1 2 3) ?x)
+
+; result
+(last-pair (2 3) (3))
+
 (last-pair (2 ?x) (3))
+
+; result 
+(last-pair (2 3) (3))
+
 (last-pair ?x (3))
+
+; result
+(error "???")
 #+END_SRC
+
+*** Exercise 4.63 
+
+Formulate rules such as 
+
+if S is the son of F, and F is the son of G, then S is the grandson of G 
+
+#+BEGIN_SRC scheme
+(rule (grandson ?s ?g)
+      (and (son ?s ?f)
+           (son ?f ?g)))
+#+END_SRC
+
+if W is the wife of M, and S is the son of W, then S is the son of M 
+
+#+BEGIN_SRC scheme
+(rule (step-son ?m ?s)
+      (and (wife ?w ?m)
+           (son ?s ?w)))
+#+END_SRC
+
+** How the Query System Works 
+
+This section gives an overview of the general structure of the system for the logical programming language, independent of low-level implementation details. 
+
+The query evaluator must perform some kind of search in order to match queries against facts and rules in the database. One way to do this is with amb. Another possibility is to manage the search with the aid of streams, which this implementation will follow. Our query system is organized around two operations called pattern matching and unification. 
+
+Pattern matching, together with the organization of information in terms of streams of frames, enables us to implement simple and complex queries. 
+
+Unification is a generalization of pattern matching needed to implement rules. 
+
+** Pattern Matching 
+
+A pattern matcher is a program that tests whether some datum fits a specified pattern. The pattern matcher used by the query system takes as inputs a pattern, a datum, and a frame that specifies bindings for various pattern variables. It checks whether the datum matches the pattern in a way that is consistent with the bindings already in the frame. The pattern matcher is needed to process simple queries that don't involve rules. 
+
+** Steams of Frames
+
+Given a single frame, the matching process runs through the database entries one by one. For each entry, the matcher generates either a special symbol indicating that the match has failed or an extension to the frame. The results for all the database entries are collected into a stream, which is passed through a filter to weed out failures. The result is a stream of all the frames that extend the given frame via a match to some assertion in the database. 
+
+In general, since pattern matching is an expensive operations, we wish to do this filtering in two passes: first a coarse filter, then a finer filter. Ideally we would do this at the creation time of the database, which is called indexing. 
+
+To answer a simple query, we use the query with an input stream consisting of a single empty frame. The resulting output stream contains all extensions to the empty frame. The stream of frames is then used to generate a stream of copies of the original query pattern with the variables instantiated by the values in each frame, and this stream is then printed.
+
+** Compound Queries 
+
+The elegance of the stream-of-frames implementation is evident when we consider compound queries. We can think of these as series of filters performed by simple queries, i.e.,
+
+#+BEGIN_SRC scheme
+(and (can-do-job ?x (computer programmer trainee))
+     (job ?person ?x))
+#+END_SRC
+
+is a simple query for can-do-job passed to the next query for job.
+
+Similarly or is two streams that are then merged. Not is a stream that returns all the values that the pattern matcher would otherwise drop. 
+
+** Unification
+
+Rule conclusions are like assertions except that they contain variables, so we will need a generalization of pattern matching -- called unification -- in which both the pattern and the datum may contain variables. 
+
+A unifier takes two patterns, each containing constants and variables, and determines whether it is possible to assign values to the variables that will make the two patterns equal. If so, it returns a frame containing these bindings. The unifier used in the query system, like the pattern matcher, take a frame as input and perform unifications that are consistent with this frame.
+
+** Applying Rules 
+
+
