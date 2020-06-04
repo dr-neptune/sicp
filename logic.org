@@ -417,4 +417,30 @@ A unifier takes two patterns, each containing constants and variables, and deter
 
 ** Applying Rules 
 
+Unification is the key to the component of the query system that makes inference from rules. 
+
+In general, the query evaluator uses the following method to apply a rule when trying to establish a query pattern in a frame that specifies bindings for some of the pattern variables:
+
+- Unify the query with the conclusion of the rule to form, if successful, an extension of the original frame
+- Relative to the extended frame, evaluate the query formed by the body of the rule
+
+Notice how similar this is for applying a procedure in the eval-apply evaluator for lisp: 
+
+- Bind the procedure's parameters to its arguments to form a frame that extends the original procedure environment
+- Relative to the extended environment, evaluate the expression formed by the body of the procedure
+
+** Simple Queries 
+
+Given the query pattern and a stream of frames, we produce, for each frame in the input stream, two streams: 
+
+- a stream of extended frames obtained by matching the pattern against all assertions in the database (using the pattern matcher)
+- a stream of extended frames obtains by applying all possible rules (using the unifier)
+
+Since unification is a generalization of pattern matching, we could use the unifier for both steps, but this illustrates the usefulness of the pattern matcher in its own right. 
+
+** Is Logic Programming Mathematical Logic? 
+
+The operations and, or, not, and the application of query language rules is accomplished through a legitimate method of inference. This identification of the query language with mathematical logic is not really valid though because the query language provides a control structure that interprets the logic statements procedurally. 
+
+The aim of logic programming is to provide the programmer with two techniques for decomposing a computational problem into two separate problems: "what" is to be computed, and "how" this should be computed. Control ("how" to compute) is effected by using the order of evaluation of the language. At the same time, we should be able to view the result of the computation ("what" to compute) as a simple consequence of the laws of logic. 
 
