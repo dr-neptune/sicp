@@ -444,3 +444,218 @@ The operations and, or, not, and the application of query language rules is acco
 
 The aim of logic programming is to provide the programmer with two techniques for decomposing a computational problem into two separate problems: "what" is to be computed, and "how" this should be computed. Control ("how" to compute) is effected by using the order of evaluation of the language. At the same time, we should be able to view the result of the computation ("what" to compute) as a simple consequence of the laws of logic. 
 
+** Infinite Loops 
+
+A consequence of the procedural interpretation of logic programs is that it is possible to construct hopelessly inefficient programs for solving certain problems. An extreme case of inefficiency occurs when the system falls into infinite loops making deductions. 
+
+** Problems with not 
+
+The not of programming languages reflects the closed world assumption that all relevant information has been included in the database. 
+
+
+*** Exercise 4.64 
+
+Louis Reasoner mistakenly deletes the outranked-by rule from the database. When he realizes, he rewrites it as such: 
+
+#+BEGIN_SRC scheme
+(rule (outranked-by ?staff-person ?boss)
+      (or (supervisor ?staff-person ?boss)
+          (and (outranked-by ?middle-manager ?boss)
+               (supervisor ?staff-person ?middle-manager))))
+#+END_SRC
+
+When Aull Dewitt issues the query (outranked-by (Bitdiddle Ben) ?who) it goes into an infinite loop. Explain why. 
+
+#+BEGIN_SRC scheme
+(outranked-by (Bitdiddle Ben) ?who)
+
+(rule (outranked-by (B B) ?boss)
+      (or (supervisor (B B) ?boss)
+          (and (outranked-by ?middle-manager ?boss)
+               (supervisor (B B) ?middle-manager))))
+#+END_SRC
+
+When we call this rule after unification, it will call (outranked-by ?middle-manager ?boss) which is identical to our query (outranked-by ?staff-person ?boss) leading to an infinite loop.
+
+*** Exercise 4.65 
+
+Cy D. Fect gives a query to find all the wheels. To his surprise, it lists Oliver Warbucks four times. Why?
+
+Here is the implementation of wheel: 
+
+#+BEGIN_SRC scheme
+(rule (wheel ?person ?middle-manager ?x)
+      (and (supervisor ?middle-manager ?person)
+           (supervisor ?x ?middle-manager)))
+#+END_SRC
+
+wheel will return any person for whom there exists a person with 2 degrees of separation. 
+
+Therefore, we have 
+
+Warbucks -> Ben -> Alyssa
+Warbucks -> Ben -> Lem 
+Warbucks -> Ben -> Cy 
+Warbucks -> Scrooge -> Cratchet 
+Bitdiddle -> Alyssa -> Louis 
+
+*** Exercise 4.66 
+
+Ben has been generalizing the system to provide statistics about the company. For example: 
+
+#+BEGIN_SRC scheme
+(sum ?amount
+     (and (job ?x (computer programmer))
+          (salary ?x ?amount)))
+#+END_SRC
+
+When he hears about Cy's problem from the last exercise, he realizes his simple accumulation scheme won't work. Why?
+
+If he were to call sum on the wheels, he would get back 4 instances of Warbucks salary. Similarly, since there can be multiple streams for nonfiltered rules, the accumulation would overcount. 
+
+*** Exercise 4.67
+
+pass 
+
+*** Exercise 4.68 
+
+Define a rule to implement the reverse operation 
+
+#+BEGIN_SRC scheme
+(rule (reverse () ()))
+(rule (reverse ?x . ?y)
+      (?y . ?x))
+#+END_SRC
+
+*** Exercise 4.69 
+
+#+BEGIN_SRC scheme
+(rule (end-grandson (grandson)))
+(rule (end-grandson (?x . ?rest))
+      (end-grandson ?rest))
+
+(rule ((great . ?rel) ?x ?y)
+      (and (end-grandson ?rel)
+           (son ?x ?z)
+           (?rel ?z ?y)))
+#+END_SRC
+
+** Implementing the Query System 
+
+** The Driver Loop and Instantiation 
+
+The driver loop for the query system repeatedly reads input expressions. If the expression is a rule or assertion to be added to the database, then the information is added. Otherwise the expression is assumed to be a query. 
+
+#+BEGIN_SRC scheme
+(define input-prompt ";;; Query input:")
+(define output-prompt ";;; Query results:")
+
+(define (query-driver-loop)
+  (prompt-for-input input-prompt)
+  (let ((q (query-syntax-process (read))))
+    (cond ((assertion-to-be-added? q)
+           (add-rule-or-assertion!
+            (add-assertion-body q))
+           (newline)
+           (display "Assertion added to database.")
+           (query-driver-loop))
+          (else
+           (newline)
+           (display output-prompt)
+           (display-stream
+            (stream-map
+             (lambda (frame)
+               ; transform input syntactically
+               (instantiate q frame (lambda (v f) (contract-question-mark v))))
+             ; evaluate query
+             (qeval q (singleton-stream '()))))
+           (query-driver-loop)))))
+
+; to instantiate, copy exp replacing variables with values
+(define (instantiate exp frame unbound-var-handler)
+  (define (copy exp)
+    (cond ((var? exp)
+           (let ((binding (binding-in-frame exp frame)))
+             (if binding
+                 (copy (binding-value binding))
+                 (unbound-var-handler exp frame))))
+          ((pair? exp)
+           (cons (copy (car exp))
+                 (copy (cdr exp))))
+          (else exp)))
+  (copy exp))
+#+END_SRC
+
+** The Evaluator 
+
+The qeval procedure takes an input a query and a stream of frames, and it returns a stream of extended frames. It identifies special forms by a data-directed dispatch using get and put. 
+
+#+BEGIN_SRC scheme
+(define (qeval query frame-stream)
+  (let ((qproc (get (type query) 'qeval)))
+    (if qproc
+        (qproc (contents query) frame-stream)
+        (simple-query query frame-stream))))
+#+END_SRC
+
+** Simple Queries 
+
+The simple-query procedure takes as args a simple query (a pattern) together with a stream of frames, and it returns a stream formed by extending each frame by all database matches of the query. 
+
+#+BEGIN_SRC scheme
+(define (simple-query query-pattern frame-stream)
+  (stream-flatmap
+   (lambda (frame)
+     (stream-append-delayed
+      (find-assertions query-pattern frame)
+      (delay (apply-rules query-pattern frame))))
+   frame-stream))
+#+END_SRC 
+
+** Compound Queries 
+
+and queries are handled by conjoin. conjoin takes as inputs the conjuncts and the frame stream and returns the stream of extended frames. 
+
+#+BEGIN_SRC scheme
+(define (conjoin conjuncts frame-stream)
+  (if (empty-conjunction? conjuncts)
+      frame-stream
+      (conjoin (rest-conjuncts conjuncts)
+               (qeval (first-conjunct conjuncts)
+                      frame-stream))))
+
+(put 'and 'qeval conjoin)
+#+END_SRC
+
+or queries are handled by disjoin 
+
+#+BEGIN_SRC scheme
+(define (disjoin disjuncts frame-stream)
+  (if (empty-disjunction? disjuncts)
+      the-empty-stream
+      (interleave-delayed
+       (qeval (first-disjunct disjunct)
+              frame-stream)
+       (delay (disjoin
+               (rest-disjuncts disjuncts)
+               frame-stream)))))
+
+(put 'or 'qeval disjoin)
+#+END_SRC
+
+** Filters 
+
+Not attempts to extend each frame in the input stream to satisfy the query being negated, and we include a given frame in the output stream if it cannot be extended. 
+
+#+BEGIN_SRC scheme
+(define (negate operands frame-stream)
+  (stream-flatmap
+   (lambda (frame)
+     (if (stream-null? (qeval (negated-query operands)
+                              (singleton-stream frame)))
+         (singleton-stream frame)
+         the-empty-stream))
+   frame-stream))
+
+(put 'not 'qeval negate)
+#+END_SRC
