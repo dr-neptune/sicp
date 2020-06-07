@@ -659,3 +659,372 @@ Not attempts to extend each frame in the input stream to satisfy the query being
 
 (put 'not 'qeval negate)
 #+END_SRC
+
+lisp-value is similar to not. Each frame in the stream is used to instantiate the variables in the pattern, the indicated predicate is applied, and the frames for which the predicate returns false are filtered out of the input stream. 
+
+#+BEGIN_SRC scheme
+(define (lisp-value call frame-stream)
+  (stream-flatmap
+   (lambda (frame)
+     (if (execute
+          (instantiate call frame (lambda (v f) (error "Unknown pat var: LISP-VALUE" v))))
+         (singleton-stream frame)
+         the-empty-stream))))
+
+(put 'lisp-value 'qeval lisp-value)
+
+; execute applies the predicate to the arguments 
+(define (execute exp)
+  (apply (eval (predicate exp) user-initial-environment)
+         (args exp)))
+
+; provides a query that is always satisfied 
+(define (always-true ignore frame-stream) frame-stream)
+(put 'always-true 'qeval always-true)
+#+END_SRC
+
+** Finding Patterns by Pattern Matching 
+
+find-assertions, called by simple-query, takes as input a pattern and a frame. It returns a stream of frames, each extending the given one by a database match of the given pattern. It uses fetch-assertions to get a stream of all the assertions in the database that should be checked for a match against the pattern and frame. 
+
+#+BEGIN_SRC scheme
+(define (find-assertions pattern frame)
+  (stream-flatmap
+   (lambda (datum) (check-an-assertion datum pattern frame))
+   (fetch-assertions pattern frame)))
+
+; takes a pattern, assertion, and a frame and returns either a singleton stream w extended frame or the empty stream if the match fails
+(define (check-an-assertion assertion query-pat query-frame)
+  (let ((match-result (pattern-match query-pat assertion query-frame)))
+    (if (eq? match-result 'failed)
+        the-empty-stream
+        (singleton-stream match-result))))
+
+; match pattern against the data, element by element
+(define (pattern-match pat dat frame)
+  (cond ((eq? frame 'failed) 'failed)
+        ((equal? pat dat) frame)
+        ((var? pat) (extend-if-consistent pat dat frame))
+        ((and (pair? pat)
+              (pair? dat))
+         (pattern-match (cdr pat)
+                        (cdr dat)
+                        (pattern-match (car pat)
+                                       (car dat)
+                                       frame)))
+        (else 'failed)))
+
+; extends a frame by adding a new binding, if consistent with the bindings already in the frame
+(define (extend-if-consistent var dat frame)
+  (let ((binding (binding-in-frame var frame)))
+    (if binding
+        (pattern-match (binding-value binding) dat frame)
+        (extend var dat frame))))
+#+END_SRC
+
+** Rules and Unification 
+
+apply-rules is the rule analog of find-assertions. 
+
+#+BEGIN_SRC scheme
+(define (apply-rules pattern frame)
+  (stream-flatmap (lambda (rule)
+                    (apply-a-rule rule pattern frame))
+                  (fetch-rules pattern frame)))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+; rename variables to avoid namespace collision with rules
+(define (apply-a-rule rule query-pattern query-frame)
+  (let ((clean-rule (rename-variables-in rule)))
+    (let ((unify-result (unify-match query-pattern
+                                     (conclusion clean-rule)
+                                     query-frame)))
+      (if (eq? unify-result 'failed)
+          the-empty-stream
+          (qeval (rule-body clean-rule)
+                 (singleton-stream unify-result))))))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+(define (rename-variables-in-rule)
+  (let ((rule-application-id (new-rule-application-id)))
+    (define (tree-walk exp)
+      (cond ((var? exp)
+             (make-new-variable exp rule-application-id))
+            ((pair? exp)
+             (cons (tree-walk (car exp))
+                   (tree-walk (cdr exp))))
+            (else exp)))
+    (tree-walk rule)))
+#+END_SRC
+
+The unification algorithm is implemented as a procedure that takes as input two patterns and a frame and returns either the extended frame or the symbol failed. The unifier is like the pattern matcher except that it is symmetrical -- variables are allowed on both sides of the match. 
+
+#+BEGIN_SRC scheme
+(define (unify-match p1 p2 frame)
+  (cond ((eq? frame 'failed) 'failed)
+        ((equal? p1 p2) frame)
+        ((var? p1) (extend-if-possible p1 p2 frame))
+        ((var? p2) (extend-if-possible p2 p1 frame))
+        ((and (pair? p1)
+              (pair? p2))
+         (unify-match (cdr p1) (cdr p2)
+                      (unify-match (car p1) (car p2) frame)))
+        (else 'failed)))
+#+END_SRC
+
+In unification, as in one-sided pattern matching, we want to accept a proposed extension of the frame only if it is consistent with existing bindings. If the variable we wish to match is not bound, but the variable we are trying to match it with is itself a different variable, it is necessary to check to see if the value is bound, and if so, to match its value. If both parties to the match are unbound, we may bind either to the other. 
+
+#+BEGIN_SRC scheme
+(define (extend-if-possible var val frame)
+  (let ((binding (binding-in-frame var frame)))
+    (cond (binding (unify-match (binding-value binding) val frame))
+          ((var? val)
+           (let ((binding (binding-in-frame val frame)))
+             (if binding
+                 (unify-match var (binding-value binding) frame)
+                 (extend var val frame))))
+          ((depends-on? val var frame) 'failed)
+          (else (extend var val frame)))))
+
+; tests whether the expression proposed to be the value of a pattern variable depends on the variable
+(define (depends-on? exp var frame)
+  (define (tree-walk e)
+    (cond ((var? e)
+           (if (equal? var e)
+               true
+               (let ((b (binding-in-frame e frame)))
+                 (if b
+                     (tree-walk (binding-value b))
+                     false))))
+          ((pair? e)
+           (or (tree-walk (car e))
+               (tree-walk (cdr e))))
+          (else false)))
+  (tree-walk exp))
+#+END_SRC
+
+** Maintaining the Database 
+
+One important problem in designing logic programming languages is that of arranging things so that as few irrelevant database entries as possible will be examined in checking a given pattern. 
+
+#+BEGIN_SRC scheme
+(define THE-ASSERTIONS the-empty-stream)
+
+(define (fetch-assertions pattern frame)
+  (if (use-index? pattern)
+      (get-indexed-assertions pattern)
+      (get-all-assertions)))
+
+(define (get-all-assertions) THE-ASSERTIONS)
+
+(define (get-indexed-assertions pattern)
+  (get-stream (index-key-of pattern) 'assertion-stream))
+
+(define (get-stream key1 key2)
+  (let ((s (get key1 key2)))
+    (if s
+        s
+        the-empty-stream)))
+
+(define THE-RULES the-empty-stream)
+
+(define (fetch-rules pattern frame)
+  (if (use-index? pattern)
+      (get-indexed-rules pattern)
+      (get-all-rules)))
+
+(define (get-all-rules) THE-RULES)
+
+(define (get-indexed-rules pattern)
+  (stream-append
+   (get-stream (index-key-of-pattern) 'rule-stream)
+   (get-stream '? 'rule-stream)))
+
+(define (add-rule-or-association! assertion)
+  (if (rule? assertion)
+      (add-rule! assertion)
+      (add-assertion! assertion)))
+
+(define (add-assertion! assertion)
+  (store-assertion-in-index assertion)
+  (let ((old-assertions THE-ASSERTIONS))
+    (set! the-assertions (cons-stream assertion old-assertions))
+    'ok))
+
+(define (add-rule! rule)
+  (store-rule-in-index rule)
+  (let ((old-rules THE-RULES))
+    (set! THE-RULES (cons-stream rule old-rules))
+    'ok))
+
+; to store an assertion or rule, check to see if it can be indexed
+(define (store-assertion-in-index assertion)
+  (if (indexable? assertion)
+      (let ((key (index-key-of assertion)))
+        (let ((current-assertion-stream (get-stream key 'assertion-stream)))
+          (put key 'assertion-stream
+               (cons-stream assertion current-assertion-stream))))))
+
+(define (store-rule-in-index rule)
+  (let ((pattern (conclusion rule)))
+    (if (indexable? pattern)
+        (let ((key (index-key-of pattern)))
+          (let ((current-rule-stream (get-stream key 'rule-stream)))
+            (put key 'rule-stream (cons-stream rule current-rule-stream)))))))
+
+; a pattern will be stored in the table if it starts with a variable or constant symbol
+(define (indexable? pat)
+  (or (constant-symbol? (car pat))
+      (var? (car pat))))
+
+(define (index-key-of pat)
+  (let ((key (car pat)))
+    (if (var? key) '? key)))
+
+(define (use-index? pat)
+  (constant-symbol? (car pat)))
+#+END_SRC
+
+** Stream Operations 
+
+stream-append-delayed and interleave-delayed are just like stream-append and interleave except that they have a delayed argument. 
+
+#+BEGIN_SRC scheme
+(define (stream-append-delayed s1 delayed-s2)
+  (if (stream-null? s1)
+      (force delayed-s2)
+      (cons-stream (stream-car s1)
+                   (stream-append-delayed (stream-cdr s1) delayed-s2))))
+
+(define (interleave-delayed s1 delayed-s2)
+  (if (stream-null? s1)
+      (force delayed-s2)
+      (cons-stream (stream-car s1)
+                   (interleave-delayed
+                    (force delayed-s2)
+                    (delay (stream-cdr s1))))))
+
+(define (stream-flatmap proc s)
+  (flatten-stream (stream-map proc s)))
+
+(define (flatten-stream stream)
+  (if (stream-null? stream)
+      the-empty-stream
+      (interleave-delayed
+       (stream-car stream)
+       (delay (flatten-stream (stream-cdr stream))))))
+
+(define (singleton-stream x)
+  (cons-stream x the-empty-stream))
+#+END_SRC
+
+** Query Syntax Procedures
+
+type and contents, used by qeval, specify that a special form is identified by the symbol in its car. 
+
+#+BEGIN_SRC scheme
+(define (type exp)
+  (if (pair? exp)
+      (car exp)
+      (error "Unknown expression TYPE" exp)))
+
+(define (contents exp)
+  (if (pair? exp)
+      (cdr exp)
+      (error "Unknown expression CONTENTS" exp)))
+
+; used by query-driver-loop
+(define (assertion-to-be-added? exp)
+  (eq? (type exp) 'assert!))
+
+(define (add-assertion-body exp)
+  (car (contents exp)))
+
+; special forms
+(define (empty-conjunction? exps) (null? exps))
+(define (first-conjunct exps) (car exps))
+(define (rest-conjuncts exps) (cdr exps))
+(define (empty-disjunction? exps) (null? exps))
+(define (first-disjunct exps) (car exps))
+(define (rest-disjuncts exps) (cdr exps))
+(define (negated-query exps) (car exps))
+(define (predicate exps) (car exps))
+(define (args exps) (cdr exps))
+
+; syntax of the rules 
+(define (rule? statement)
+  (tagged-list? statement 'rule))
+
+(define (conclusion rule) (cadr rule))
+
+(define (rule-body rule)
+  (if (null? (cddr rule))
+      '(always-true)
+      (caddr rule)))
+
+; transform (job ?x ?y) into (job (? x) (? y))
+(define (query-syntax-process exp)
+  (map-over-symbols expand-question-mark exp))
+
+(define (map-over-symbols proc exp)
+  (cond ((pair? exp)
+         (cons (map-over-symbols proc (car exp))
+               (map-over-symbols proc (cdr exp))))
+        ((symbol? exp) (proc exp))
+        (else exp)))
+
+(define (expand-question-mark symbol)
+  (let ((chars (symbol->string symbol)))
+    (if (string=? (substring chars 0 1) "?")
+        (list '?
+              (string->symbol
+               (substring chars 1 (string-length chars))))
+        symbol)))
+
+(define (var? exp) (tagged-list? exp '?))
+(define (constant-symbol? exp) (symbol? exp))
+
+; the unique id for a rule application is a number, which is incremented each time a rule is applied
+(define rule-counter 0)
+
+(define (new-rule-application-id)
+  (set! rule-counter (+ 1 rule-counter))
+  rule-counter)
+
+(define (make-new-variable var rule-application-id)
+  (cons '? (cons rule-application-id (cdr var))))
+
+; when printing in driver loop, convert unbound vars back to the right form
+(define (contract-question-mark variable)
+  (string->symbol
+   (string-append "?"
+                  (if (number? (cadr variable))
+                      (string-append (symbol->string (caddr variable))
+                                     "-"
+                                     (number->string (cadr variable)))
+                      (symbol->string (cadr variable))))))
+#+END_SRC 
+
+** Frames and Bindings 
+
+Frames are represented as a list of bindings, which are variable-value pairs
+
+#+BEGIN_SRC scheme
+(define (make-binding variable value)
+  (cons variable value))
+
+(define (binding-variable binding)
+  (car binding))
+
+(define (binding-value binding)
+  (cdr binding))
+
+(define (binding-in-frame variable frame)
+  (assoc variable frame))
+
+(define (extend variable value frame)
+  (cons (make-binding variable value) frame))
+#+END_SRC
+
