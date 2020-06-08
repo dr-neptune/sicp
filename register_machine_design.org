@@ -1,0 +1,400 @@
+* Computing with Register Machines
+
+A register machine sequentially executes instructions that manipulate the contents of a fixed set of storage elements called registers. A typical register machine instruction applies a primitive operation to the contents of some registers and assigns the result to another register. 
+
+* Designing Register Machines 
+:PROPERTIES:
+:header-args: :session scheme :results verbatim raw
+:ARCHIVE:
+:END:
+
+To design a register machine, we must design its data paths (registers and operations) and the controller that sequences these operations. 
+
+*** Exercise 5.1 
+
+Design a register machine to compute factorials using the iterative algorithm specified by the following procedure. 
+
+Draw data-path and controller diagrams for this machine
+
+#+BEGIN_SRC scheme
+(define (factorial n)
+  (define (iter prod count)
+    (if (> count n)
+        prod
+        (iter (* count prod)
+              (+ count 1))))
+  (iter 1 1))
+
+(factorial 5)
+#+END_SRC
+
+** A Language for Describing Register Machines 
+
+We define the controller of a machine as a sequence of instructions together with labels that identify entry points in the sequence. As instruction is one of the following: 
+
+- The name of a datapath button to push to assign a value to a register (a box in the controller diagram)
+- A test instruction, that performs a specified test
+- A conditional branch (branch instruction) to a location indicated by a controller label, based on the result of the previous test
+- An unconditional branch (goto instruction) naming a controller at which to continue execution 
+
+#+BEGIN_SRC scheme
+(data-path
+ (registers
+  ((name a)
+   (buttons ((name a<-b) (source (register b)))))
+  ((name b)
+   (buttons ((name b<-t) (source (register t)))))
+  ((name t)
+   (buttons ((name t<-r) (source (operation rem))))))
+ (operations
+  ((name rem) (inputs (register a) (register b)))
+  ((name =) (inputs (register b) (constant 0)))))
+
+(controller
+ test-b                    ; label
+ (test =)                  ; test
+ (branch (label gcd-done)) ; conditional branch
+ (t<-r)                    ; button push
+ (a<-b)
+ (b<-t)
+ (goto (label test-b))     ; unconditional branch
+ gcd-done)                 ; label
+
+; this is difficult to read, so we transform our notation to combine the information from the datapath and controller descriptions to see it all together
+(controller
+ test-b
+ (test (op =) (reg b) (const 0))
+ (branch (label gcd-done))
+ (assign t (op rem) (reg a) (reg b))
+ (assign a (reg b))
+ (assign b (reg t))
+ (goto (label test-b))
+ gcd-done)
+#+END_SRC
+
+*** Exercise 5.2 
+
+Use the register machine language to describe the factorial machine of exercise 5.1 
+
+#+BEGIN_SRC scheme
+(data-path
+ (registers
+  ((name prod)
+   (buttons ((name mul->prod (source mul)))))
+  ((name mul)
+   (buttons ((name prod->mul (source prod))
+             (name count->mul (source count)))))
+  ((name count)
+   (buttons ((name add->count (source add)))))
+  ((name add)
+   (buttons ((name count->add (source (count)))
+             (name one->add (source one))))))
+ (operations
+  ((name gt)
+   (inputs (register count) (register n)))
+  ((name one)
+   (inputs (constant 1)))))
+
+(controller
+ test-n
+ (test (op >) (reg n) (reg count))
+ (branch (label fib-done))
+ (assign prod ((op mul) (reg prod) (reg count)))
+ (assign count ((op plus) (reg count) 1))
+ (goto (label fib-done))
+ fib-done)
+#+END_SRC
+
+This is definitely wrong above ^^^
+
+** Actions 
+
+Here is a gcd machine that reads inputs and prints results 
+
+#+BEGIN_SRC scheme
+(controller
+ gcd-loop
+ (assign a (op read))
+ (assign b (op read))
+ test-b
+ (test (op =)
+       (reg b)
+       (const 0))
+ (branch (label gcd-done))
+ (assign t
+         (op rem)
+         (reg a)
+         (reg b))
+ (assign a (reg b))
+ (assign b (reg t))
+ (goto (label test-b))
+ gcd-done
+ (perform (op print)
+          (reg a))
+ (goto (label gcd-loop)))
+#+END_SRC
+
+Consider print. It does not produce an output value that is stored in a register. Though it has an effect, this effect is not part of the machine that we are designing. We refer to this kind of operation as an action. 
+
+** Abstraction in Machine Design
+
+We will often define a machine to include primitive operations that are actually very complex. Consider the GCD machine. We could take remainder for granted as a primitive in the system, or we could define it as a machine itself and use it as part of our overall system without abstracting it. 
+
+#+BEGIN_SRC scheme
+(define (remainder n d)
+  (if (< n d)
+      n
+      (remainder (- n d) d)))
+
+(controller
+ test-b
+ (test (op =) (reg b) (const 0))
+ (branch (label gcd-done))
+ (assign t (reg a))
+ rem-loop
+ (test (op <) (reg t) (reg b))
+ (branch (label rem-done))
+ (assign t (op -) (reg t) (reg b))
+ (goto (label rem-loop))
+ rem-done
+ (assign a (reg b))
+ (assign b (reg t))
+ (goto (label test-b))
+ gcd-done)
+#+END_SRC
+
+*** Exercise 5.3
+
+Design a machine to compute square roots using Newton's Method. 
+
+pass 
+
+** Subroutines 
+
+When designing a machine to perform computation, we would often prefer to arrange for components to be shared by different parts of the computation rather than duplicate the components. 
+
+Suppose we have two gcd machines, manipulating values a,b and c,d respectively. We can avoid duplicating the data-path components by using the same components for both GCD computations, provided that doing so will not affect the rest of the larger machine's operation. If the values in registers a and b are not needed by the time the controller gets to gcd-2 (or if the values can be moved to other registers for safekeeping) we can change the machine so that we use registers a and b for gcd-2 as well. 
+
+#+BEGIN_SRC scheme
+(controller
+ ...
+ gcd-1
+ (test (op =) (reg b) (const 0))
+ (branch (label after-gcd-1))
+ (assign t (op rem) (reg a) (reg b))
+ (assign a (reg b))
+ (assign b (reg t))
+ (goto (label gcd-1))
+ after-gcd-1
+ ...
+ gcd-2
+ (test (op =) (reg b) (const 0))
+ (branch (label after-gcd-2))
+ (assign t (op rem) (reg a) (reg b))
+ (assign a (reg b))
+ (assign b (reg t))
+ (goto (label gcd-2))
+ after-gcd-2
+ ...)
+#+END_SRC
+
+We have removed the duplicate data-path components, but the controller now has two GCD sequences that differ only in their entry point labels. It would be better to replace these two sequences by branches to a single sequence - a gcd subroutine - at the end of which we branch back to the correct place in the main instruction sequence. 
+
+We do this as follows: 
+
+Before branching to gcd, we place a distinguishing value (such as 0 or 1) into a special register, continue. At the end of the gcd subroutine, we return etiher to after-gcd-1 or after-gcd-2 depending on the value of the continue register. 
+
+#+BEGIN_SRC scheme
+(controller
+ ...
+ gcd
+ (test (op =) (reg b) (const 0))
+ (branch (label gcd-done))
+ (assign t (op rem) (reg a) (reg b))
+ (assign a (reg b))
+ (assign b (reg t))
+ (goto (label gcd))
+ gcd-done
+ (test (op =) (reg continue) (const 0))
+ (branch (label after-gcd-1))
+ (goto (label after-gcd-2))
+ ...
+ ; before branching to gcd we place 0 in the continue register
+ (assign continue (const 0))
+ (goto (label gcd))
+ after-gcd-1
+ ...
+ ; before second use of gcd, place 1 in the continue register
+ (assign continue (const 1))
+ (goto (label gcd))
+ after-gcd-2
+ ...)
+#+END_SRC
+
+This is reasonable for small problems, but it scales awkwardly. 
+
+A more powerful method for implementing subroutines is to have the continue register hold the label of the entry point in the controller sequence at which execution should continue when the subroutine is finished. To implement this, we need a way to assign to a register a label in the controller sequence such that this value can be fetched from the register and used to continue execution at the designated entry point. To reflect this, we will extend the assign instruction to allow a register to be assigned as value a label from the controller sequence (as a special kind of constant). 
+
+#+BEGIN_SRC scheme
+(controller
+ ...
+ gcd
+ (test (op =) (reg b) (const 0))
+ (branch (label gcd-done))
+ (assign t (op rem) (reg a) (reg b))
+ (assign a (reg b))
+ (assign b (reg t))
+ (goto (label gcd))
+ gcd-done
+ (goto (reg continue))
+ ...
+ (assign continue (label after-gcd-1))
+ (goto (label gcd))
+ after-gcd-1
+ ; second call with a different continuation
+ (assign continue (label after-gcd-2))
+ (goto (label gcd))
+ after-gcd-2
+ ...)
+#+END_SRC
+
+In this version, our machine with more than one subroutine could use multiple continuation registers or we could have all subroutines share a single continue register. Sharing is economical, but we must be careful if we have a subroutine that calls another subroutine. Unless sub1 saves the contents of continue in some other register before setting up continue for the call to sub2, sub1 will not know where to go when it is finished. 
+
+** Using a Stack to Implement Recursion 
+
+With the ideas so far, we can implement any iterative process by specifying a register machine that has a register corresponding to each state variable of the process. Implementing recursive processes requires an additional mechanism. 
+
+Consider:
+ 
+#+BEGIN_SRC scheme
+(define (factorial n)
+  (if (= n 1)
+      1
+      (* (factorial (- n 1))
+         n)))
+#+END_SRC
+
+Since there is no a priori limit on the depth of nested recursive calls, we may need to save an arbitrary number of register values. These values must be restored in the reverse of the order in which they were saved, since in a nest of recursions the last subproblem to be entered is the first to be finished. This dictates the use of a stack, or last in first out data structure, to save register values. 
+
+We can extend the register machine language to include a stack by adding two kinds of instructions: 
+
+Values are placed on the stack using a save instruction and restored from the stack using a restore instruction. After a sequence of values has been saved on the stack, a sequence of restores will retrieve these values in reverse order. 
+
+With the aid of the stack, we can reuse a single copy of the factorial machine's data paths for each factorial subproblem. 
+
+Here is a recursive factorial machine 
+
+#+BEGIN_SRC scheme
+(controller
+ (assign continue (label fact-done)) ; set up final return address
+ fact-loop
+ (test (op =) (reg n) (const 1))
+ (branch (label base-case))
+ ; set up for the recursive call by saving n and continue
+ ; set up continue so that the computation will continue
+ ; at after-fact when the subroutine returns
+ (save continue)
+ (save n)
+ (assign n (op -) (reg n) (const 1))
+ (assign continue (label after-fact))
+ (goto (label fact-loop))
+ after-fact
+ (restore n)
+ (restore continue)
+ (assign val (op *) (reg n) (reg val)) ; val now contains n(n - 1)!
+ (goto (reg continue)) ; return to caller
+ base-case
+ (assign val (const 1)) ; base-case: 1! = 1
+ (goto (reg continue)) ; return to caller
+ fact-done)
+#+END_SRC
+
+** A Double Recursion 
+
+Consider this version of fibonacci: 
+
+#+BEGIN_SRC scheme
+(define (fib n)
+  (if (< n 2)
+      n
+      (+ (fib (- n 1))
+         (fib (- n 2)))))
+#+END_SRC
+
+This machine is more complex than the one for factorial because there are two places in the controller sequence where we need to perform recursive calls. 
+
+#+BEGIN_SRC scheme
+(controller
+ (assign continue (label fib-done))
+ fib-loop
+ (test (op <) (reg n) (const 2))
+ (branch (label immediate-answer))
+ ; setup to compute fib(n - 1)
+ (save continue)
+ (assign continue (label afterfib-n-1))
+ (save n) ; save old value of n
+ (assign n (op -) (reg n) (const 1)) ; clobber n to n - 1
+ (goto (label (fib-loop))) ; perform recursive call
+ after-fib-n-1 ; upon return val contains fib(n - 1)
+ (restore n)
+ (restore continue)
+ ; setup to compute fib(n - 2)
+ (assign n (op -) (reg n) (const 2))
+ (save continue)
+ (assign continue (label after-fib-2))
+ (save val) ; save fib(n - 2)
+ (goto (label fib-loop))
+ after-fib-n-2 ; upon return val contains fib(n - 2)
+ (assign n (reg val)) ; n now contains fib(n - 2)
+ (restore val) ; val now contains fib(n - 1)
+ (restore continue)
+ (assign val (op +) (reg val) (reg n)) ; fib(n - 1) + fib(n - 2)
+ (goto (reg continue)) ; return to caller, answer is val
+ immediate-answer
+ (assign val (reg n)) ; base case: fib(n) = n
+ (goto (reg continue))
+ fib-done)
+#+END_SRC
+
+*** Exercise 5.4 
+
+Specify register machines that implement each of the following procedures. 
+
+#+BEGIN_SRC scheme
+; recursive exponentiation 
+(define (expt b n)
+  (if (= n 0)
+      1
+      (* b (expt b (- n 1)))))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+; iterative exponentiation
+(define (expt b n)
+  (define (iter count prod)
+    (if (= count 0)
+        prod
+        (iter (- count 1) (* prod b))))
+  (iter n 1))
+#+END_SRC
+
+*** Exercise 5.5
+*** Exercise 5.6
+
+** Instruction Summary 
+
+A controller instruction in our register-machine language has one of the following forms, where each input_i is either (reg register-name) or (const constant-value).
+
+#+BEGIN_SRC scheme
+(assign register-name (reg register-name))
+(assign register-name (const constant-value))
+(assign register-name (op operation-name) input_1 ... input_n)
+(perform (op operation-name) input_1 ... input_n)
+(test (op operation-name) input_1 ... input_n)
+(branch (label label-name))
+(goto (label label-name))
+(assign register-name (label label-name))
+(goto (reg (register-name)))
+(save register-name)
+(restore register-name)
+#+END_SRC
