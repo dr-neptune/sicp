@@ -398,3 +398,145 @@ The assembler calls make-execution-procedure to generate the execution procedure
   (cdr inst))
 #+END_SRC
 
+*** Execution Procedures for Subexpressions 
+
+The value of a reg, label, or const expression may be needed for assignment to a register (make-assign) or for input to an operation (make-operation-exp). The following procedures generate execution procedures to produce values for these expressions during the simulation
+
+#+BEGIN_SRC scheme
+(define (make-primitive-exp exp machine labels)
+  (cond ((constant-exp? exp)
+         (let ((c (constant-exp-value exp)))
+           (lambda () c)))
+        ((label-exp? exp)
+         (let ((insts
+                (lookup-label labels (label-exp-label exp))))
+           (lambda () insts)))
+        ((register-exp? exp)
+         (let ((r (get-register machine (register-exp-reg exp))))
+           (lambda () (get-contents r))))
+        (else (error "Unknown expression type: ASSEMBLE" exp))))
+
+(define (register-exp? exp)
+  (tagged-list? exp 'reg))
+
+(define (register-exp-reg exp)
+  (cadr exp))
+
+(define (constant-exp? exp)
+  (tagged-list? exp 'const))
+
+(define (constant-exp-value exp)
+  (cadr exp))
+
+(define (label-exp? exp)
+  (tagged-list? exp 'label))
+
+(define (label-exp-label exp)
+  (cadr exp))
+#+END_SRC
+
+assign, perform, and test instructions may include the application of a machine operation (specified by an op expression) to some operands (specified by reg and const expressions). The following procedure produces an execution procedure for an "operation expression" - a list containing the operation and operand expressions from the instruction. 
+
+#+BEGIN_SRC scheme
+(define (make-operation-exp exp machine labels operations)
+  (let ((op (lookup-prim (operation-exp-op exp) operations))
+        (aprocs (map (lambda (e) (make-primitive-exp e machine labels))
+                     (operation-exp-operands exp))))
+    (lambda () (apply op (map (lambda (p) (p)) aprocs)))))
+
+(define (operation-exp? exp)
+  (and (pair? exp)
+       (tagged-list? (car exp) 'op)))
+
+(define (operation-exp-op operation-exp)
+  (cadr (car operation-exp)))
+
+(define (operation-exp-operands operation-exp)
+  (cdr operation-exp))
+
+(define (lookup-prim symbol operations)
+  (let ((val (assoc symbol operations)))
+    (if val
+        (cadr val)
+        (error "Unknown operation: ASSEMBLE" symbol))))
+#+END_SRC
+
+*** Exercise 5.9 
+
+The treatment of machine operations above permits them to operate on labels as well as on constants and the contents of registers. 
+
+Modify the expression processing procedures to enforce the condition that operations can be used only with registers and constants. 
+
+#+BEGIN_SRC scheme
+; reference 
+(define (make-primitive-exp exp machine labels)
+  (cond ((constant-exp? exp)
+         (let ((c (constant-exp-value exp)))
+           (lambda () c)))
+        ; get rid of / pass with some kind of break
+        ;; ((label-exp? exp)
+        ;;  (let ((insts
+        ;;         (lookup-label labels (label-exp-label exp))))
+        ;;    (lambda () insts)))
+        ; get rid of / pass with some kind of break
+        ((label-exp? exp)
+         (error "Only registers and constants allowed: ASSEMBLE" exp))
+        ((register-exp? exp)
+         (let ((r (get-register machine (register-exp-reg exp))))
+           (lambda () (get-contents r))))
+        (else (error "Unknown expression type: ASSEMBLE" exp))))
+
+(define (register-exp? exp)
+  (tagged-list? exp 'reg))
+
+(define (register-exp-reg exp)
+  (cadr exp))
+
+(define (constant-exp? exp)
+  (tagged-list? exp 'const))
+
+(define (constant-exp-value exp)
+  (cadr exp))
+
+; remove
+(define (label-exp? exp)
+  (tagged-list? exp 'label))
+
+(define (label-exp-label exp)
+  (cadr exp))
+; remove
+
+; alternatively
+(define (make-operation-exp exp machine labels operations)
+  (let ((op (lookup-prim (operation-exp-op exp) operations))
+        (aprocs (map (lambda (e) (if (label-exp? e)
+                                (error "Only registers and constants allowed: ASSEMBLE" e)
+                                (make-primitive-exp e machine labels)))
+                     (operation-exp-operands exp))))
+    (lambda () (apply op (map (lambda (p) (p)) aprocs)))))
+
+(define (operation-exp? exp)
+  (and (pair? exp)
+       (tagged-list? (car exp) 'op)))
+
+(define (operation-exp-op operation-exp)
+  (cadr (car operation-exp)))
+
+(define (operation-exp-operands operation-exp)
+  (cdr operation-exp))
+
+(define (lookup-prim symbol operations)
+  (let ((val (assoc symbol operations)))
+    (if val
+        (cadr val)
+        (error "Unknown operation: ASSEMBLE" symbol))))
+#+END_SRC
+
+*** Exercise 5.10 
+
+Design a new syntax for register-machine instructions and modify the simulator to use your new syntax. 
+
+This is awesome, but pass due to time constraints 
+
+*** Exercise 5.11 
+
