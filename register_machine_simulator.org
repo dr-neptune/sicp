@@ -582,3 +582,168 @@ For example, we can install in our simulation program a meter that measures the 
 #+END_SRC
 
 exercises 15 through 19 describe other useful monitoring and debugging features that can be added to the register machine simulator. 
+
+*** Exercise 5.15 
+
+Add instruction counting to the register machine simulation. Extend the machine model's interface to accept a new message that prints the value of the instruction count and resets the count to 0.
+
+#+BEGIN_SRC scheme
+(define (make-stack)
+  (let ((s '())
+        (number-pushes 0)
+        (max-depth 0)
+        (current-depth 0)
+        (inst-count 0))
+    (define (inst-count-val)
+      (newline)
+      (display "The instruction count is currently: " inst-count)
+      (newline)
+      (display "Resetting count")
+      (set! inst-count 0))
+    (define (push x)
+      (set! s (cons x s))
+      (set! number-pushes (+ 1 number-pushes))
+      (set! current-depth (+ 1 current-depth))
+      (set! max-depth (max current-depth max-depth))
+      (set! inst-count (+ inst-count 1)))
+    (define (pop)
+      (if (null? s)
+          (error "Empty stack: POP")
+          (let ((top (car s)))
+            (set! s (cdr s))
+            (set! current-depth (- current-depth 1))
+            (set! inst-count (+ inst-count 1))
+            top)))
+    (define (initialize)
+      (set! s '())
+      (set! number-pushes 0)
+      (set! max-depth 0)
+      (set! current-depth 0)
+      (set! inst-count 0)
+      'done)
+    (define (print-statistics)
+      (newline)
+      (display (list 'total-pushes '= number-pushes
+                     'maximum-depth '= max-depth
+                     'num-inst '= inst-count)))
+    (define (dispatch message)
+      (cond ((eq? message 'push) push)
+            ((eq? message 'pop) (pop))
+            ((eq? message 'initialize) (initialize))
+            ((eq? message 'print-statistics) (print-statistics))
+            ((eq? message 'reset-inst) (inst-count-val))
+            (else (error "Unknown request: STACK" message))))
+    dispatch))
+
+(define (make-new-machine)
+  (let ((pc (make-register 'pc))
+        (flag (make-register 'flag))
+        (stack (make-stack))
+        (the-instruction-sequence '())
+        (inst-count 0))
+    (let ((the-ops (list
+                    (list 'initialize-stack (lambda () (stack 'initialize)))))
+          (register-table
+           (list (list 'pc pc)
+                 (list 'flag flag))))
+      (define (print-inst-num)
+        (newline)
+        (display "The current instruction count is" inst-count)
+        (newline)
+        (display "Resetting count")
+        (set! inst-count 0))
+      (define (allocate-register name)
+        (if (assoc name register-table)
+            (error "Muliply defined register: " name)
+            (set! register-table
+                  (cons (list name (make-register name))
+                        register-table)))
+        'register-allocated)
+      (define (lookup-register name)
+        (let ((val (assoc name register-table)))
+          (if val
+              (cadr val)
+              (error "Unknown register: " name))))
+      (define (execute)
+        (let ((insts (get-contents pc)))
+          (if (null? insts)
+              'done
+              (begin
+                ((instruction-execution proc (car insts)))
+                (execute)
+                (set! inst-count (+ inst-count 1))))))
+      (define (dispatch message)
+        (cond ((eq? message 'start)
+               (set-contents! pc the-instruction-sequence)
+               (execute))
+              ((eq? message 'allocate-register) allocate-register)
+              ((eq? message 'get-register) lookup-register)
+              ((eq? message 'get-inst-count) print-inst-num)
+              ((eq? message 'install-operations)
+               (lambda (ops) (set! the-ops (append the-ops ops))))
+              (else (error "Unknown request: MACHINE" message))))
+      dispatch)))
+
+#+END_SRC
+
+*** Exercise 5.16
+
+Augment the simulator to provide for instruction tracing. Before each instruction is executed, the simulator should print the text of the instruction. 
+
+#+BEGIN_SRC scheme
+(define (make-new-machine)
+  (let ((pc (make-register 'pc))
+        (flag (make-register 'flag))
+        (stack (make-stack))
+        (the-instruction-sequence '())
+        (inst-count 0)
+        (trace 'on))
+    (let ((the-ops (list
+                    (list 'initialize-stack (lambda () (stack 'initialize)))))
+          (register-table
+           (list (list 'pc pc)
+                 (list 'flag flag))))
+      (define (print-inst-num)
+        (newline)
+        (display "The current instruction count is" inst-count)
+        (newline)
+        (display "Resetting count")
+        (set! inst-count 0))
+      (define (allocate-register name)
+        (if (assoc name register-table)
+            (error "Muliply defined register: " name)
+            (set! register-table
+                  (cons (list name (make-register name))
+                        register-table)))
+        'register-allocated)
+      (define (lookup-register name)
+        (let ((val (assoc name register-table)))
+          (if val
+              (cadr val)
+              (error "Unknown register: " name))))
+      (define (execute)
+        (let ((insts (get-contents pc)))
+          (if (null? insts)
+              'done
+              (begin
+                (if (eq? trace 'on)
+                    (begin (display (caar insts))
+                           (newline)))
+                ((instruction-execution proc (car insts)))
+                (execute)
+                (set! inst-count (+ inst-count 1))))))
+      (define (dispatch message)
+        (cond ((eq? message 'start)
+               (set-contents! pc the-instruction-sequence)
+               (execute))
+              ((eq? message 'allocate-register) allocate-register)
+              ((eq? message 'trace-on) (set! trace 'on))
+              ((eq? message 'trace-off) (set! trace 'off))
+              ((eq? message 'get-register) lookup-register)
+              ((eq? message 'get-inst-count) print-inst-num)
+              ((eq? message 'install-operations)
+               (lambda (ops) (set! the-ops (append the-ops ops))))
+              (else (error "Unknown request: MACHINE" message))))
+      dispatch)))
+#+END_SRC
+

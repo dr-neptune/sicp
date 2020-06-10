@@ -1,0 +1,80 @@
+* Storage Allocation and Garbage Collection 
+:PROPERTIES:
+:header-args: :session scheme :results verbatim raw
+:ARCHIVE:
+:END:
+
+In the next section, we will implement a scheme evaluator as a register machine. In order to simplify the discussion, we will assume that our register machines can be equipped with a list-structured memory, in which the basic operations for manipulating list-structured data are primitive. 
+
+Lisp systems provide an automatic storage allocation facility to support the illusion of an infinite memory. When a data object is no longer needed, the memory allocated to it is automatically recycled and used to construct new data objects. The method we will discuss here is called garbage collection. 
+
+** Memory as Vectors
+
+A conventional computer memory can be thought of as an array of cubbyholes, each of which contains a piece of information. Each cubbyhole has a unique name, called its address or location. Typical memory systems have two primitives: fetch data and assign data to a location. We can also increment memory address, meaning we can treat addresses as data. 
+
+To model computer memory, we use vectors. A vector is a compound data object whose individual elements can be accessed by means of an integer index in an amount of time that is independent of the index. 
+
+- (vector-ref vector n) returns the nth element of the vector
+- (vector-set! vector n value) sets the nth element of the vector to the designated value
+
+** Representing Lisp Data 
+
+We can use vectors to implement the basic pair structures required for a list-structured memory. Imagine that computer memory is split into two vectors: the-cars and the-cdrs. A pointer to a pair is an index into the two vectors. 
+
+We need a representation for objects other than pairs (such as numbers and symbols), so we use typed pointers (which extend the notion of pointers to include the type of the object it is pointing to). A symbol might be representing as a typed pointer that designates a sequence of characters that form the symbol's printed representation. Since we want two instances of a symbol to be recognized as the same by eq? we must esure that if the reader sees the same character string twice, it will use the same pointer. To accomplish this, the reader maintains a table, traditionally called the obarray, of all the symbols it has encountered. When the reader encounters a character string and is about to construct a symbol, it checks the obarray to see if it has ever seen it before. If not, it constructs a new symbol and enters the pointer in the obarray. This process of replacing character strings by unique pointers is called interning symbols. 
+
+** Implementing the primitive list operations 
+
+Given the above representation scheme, we can replace each primitive list operation of a register machine with one or more primitive vector operations. 
+
+#+BEGIN_SRC scheme
+; original
+(assign reg1 (op car) (reg reg2))
+(assign reg1 (op cdr) (reg reg2))
+
+; register machine implementations
+(assign reg1 (op vector-ref) (reg the-cars) (reg reg2))
+(assign reg1 (op vector-ref) (reg the-cdrs) (reg reg2))
+
+; original
+(perform (op set-car!) (reg reg1) (reg reg2))
+(perform (op set-cdr!) (reg reg1) (reg reg2))
+
+; register machine implementations
+(perform (op vector-set!) (reg the-cars) (reg reg1) (reg reg2))
+(perform (op vector-set!) (reg the-cdrs) (reg reg1) (reg reg2))
+
+; original 
+(assign reg1 (op cons) (reg reg2) (reg reg3))
+
+; register machine implementations
+(perform (op vector-set!) (reg the-cars) (reg free) (reg reg2))
+(perform (op vector-set!) (reg the-cdrs) (reg free) (reg reg3))
+(assign reg1 (reg free))
+(assign free (op +) (reg free) (const 1))
+#+END_SRC
+
+** Implementing Stacks 
+
+Although our register machines use stacks, we need do nothing special here since stacks can be modeled in terms of lists. The stack can be a list of saved values, pointed to by a special register the-stack. 
+
+#+BEGIN_SRC scheme
+; original
+(save reg)
+
+; register machine implementations
+(assign the-stack (op cons) (reg reg) (reg the-stack))
+
+; original
+(restore reg)
+
+; register machine implementations 
+(assign reg (op car) (reg the-stack))
+(assign the-stack (op cdr) (reg the-stack))
+
+; original
+(perform (op initialize-stack))
+
+; register machine implementations
+(assign the-stack (const ()))
+#+END_SRC
