@@ -78,3 +78,108 @@ Although our register machines use stacks, we need do nothing special here since
 ; register machine implementations
 (assign the-stack (const ()))
 #+END_SRC
+
+*** Exercise 5.20 
+
+Draw a box and pointer representation and the memory vector representation of the list structure produced by 
+
+#+BEGIN_SRC scheme
+(define x (cons 1 2))
+(define y (list x x))
+#+END_SRC
+
+*** Exercise 5.21 
+
+Implement register machines for the following procedures: 
+
+#+BEGIN_SRC scheme
+; recursive count-leaves
+(define (count-leaves tree)
+  (cond ((null? tree) 0)
+        ((not (pair? tree)) 1)
+        (else
+         (+ (count-leaves (car tree))
+            (count-leaves (cdr tree))))))
+
+(define (not-pair? tree)
+  (not (pair? tree)))
+
+(define count-leaves
+  (make-machine
+   ; pass all the arguments used
+   (list (list '+ +)
+         (list 'null? null?)
+         (list 'pair? not-pair)
+         (list 'car car)
+         (list 'cdr cdr))
+   '(
+     ; end result
+     (assign continue (label count-leaves-done))
+     (assign val (const 0))
+     ; loop
+     tree-loop
+     (test (op null?) (reg tree))
+     (branch (label null-tree))
+     (test (op pair?) (reg tree))
+     (branch (label left-tree))
+     (assign val (const 1))
+     (goto (reg continue))
+     ; tail recurse
+     left-tree
+     (save tree)
+     (save continue)
+     (assign continue (label right-tree))
+     (assign tree (op car) (reg tree))
+     (goto (label tree-loop))
+     right-tree
+     (restore continue)
+     (restore tree)
+     (save continue)
+     (save val)
+     (assign continue (label after-tree))
+     (assign tree (op cdr) (reg tree))
+     (goto (label tree-loop))
+     ; add it up
+     after-tree
+     (assign var (reg val))
+     (restore val)
+     (restore continue)
+     (assign val (op +) (reg var) (reg val))
+     (goto (reg continue))
+     ; null cond
+     null-tree
+     (assign val (const 0))
+     (goto (reg continue))
+     count-leaves-done)))
+#+END_SRC
+
+#+BEGIN_SRC scheme
+; recursive count-leaves with explicit counter
+(define (count-leaves tree)
+  (define (count-iter tree n)
+    (cond ((null? tree) n)
+          ((not (pair? tree)) (+ n 1))
+          (else
+           (count-iter
+            (cdr tree)
+            (count-iter (car tree) n)))))
+  (count-iter tree 0))
+#+END_SRC
+
+** Maintaining the Illusion of Infinite Memory 
+
+Our representation above solves the problem of implementing list structure, provided we have infinite memory. We don't however, but most of the pairs generated in a typical computations are used only to hold intermediate results. After the results are accessed, they are no longer needed; they are garbage. If we can arrange to collect all the garbage periodically, and if this turns out to recycle memory at about the same rate at which we construct new pairs, we will have preserved the illusion that there is infinite memory. 
+
+In order to recycle pairs, we must have a way to determine which allocated pairs are not needed (in the sense that their contents can no longer influence the future of the computation). The method we shall examine for accomplishing this is known as garbage collection. There are many ways to perform this, but the method we will examine here is called stop-and-copy. The basic idea is to divide memory into two halves: "working memory" and "free memory". 
+
+** Implementation of a stop-and-copy garbage collector 
+
+Assume that there is a register called root that contains a pointer to a structure that eventually points at all accessible data. This can be arranged by storing the contents of all the machine registers in a pre-allocated list pointed at by root just before starting garbage collection. 
+
+Garbage collection is triggered when we exhaust the free cells in the current working memeory. When the process is complete, all objects accessible from the root will have been moved to the new memory, and the free pointer will indicate the next place in the new memory where a new pair can be allocated. In addition, the roles of working memory and new memory will have been interchanged - new pairs will be constructed in the new memory, beginning at the place indicated by free, and the previous working memory will be available as new memory for the next garbage collection. 
+
+The state of the garbage collection process is controlled by maintaining two pointers: free and scan. These are initialized to point to the beginning of the new memory. The algorithm begins by relocating the pair pointed at by the root to the beginning of the new memory. The pair is copied, the root pointer is adjusted to point to the new location, and the free pointer is incremented. In addition, the old location of the pair is marked to show that its contents have been moved. This making is done as follows: in the car position, we place a special tag that signals that this is an already moved object (traditionally called a broken heart). In the cdr position we place a forwarding address that points at the location to which the object has been moved. 
+
+After relocating the root, the garbage collector begins its basic cycle. At each step, the scan pointer points at a pair that has been moved to the new memory but whose car and cdr pointers still refer to objects in the old memory. These objects are each relocated and the scan pointer is incremented. To rlelocate an object we check to see if it has already been moved. If not, we copy it to the place indicated by free, update free, set up a broken heart at the objects old location, and update the pointer to the object to point to a new location. If it has been moved, its forwarding address is substituted for the pointer in the pair being scanned, at which point the scan pointer will overtake the free pointer and the process will terminate. 
+
+
