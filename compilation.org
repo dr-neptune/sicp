@@ -1,0 +1,83 @@
+* Compilation 
+:PROPERTIES:
+:header-args: :session scheme :results verbatim raw
+:ARCHIVE:
+:END:
+
+The explicit-control evaluator is a register machine whose controller interprets scheme programs. In this section, we will see how to run scheme programs on a register machine whose controller is not a scheme interpreter. 
+
+Commercial general-purpose computers are register machines organized around a collection of registers and operations that constitute an efficient and convenient universal set of data paths. The controller for a general purpose machine is an interpreter for a register machine language like the one we have been using. This language is called the native language of the machine, or simply machine language. 
+
+There are two common strategies for bridging the gap between higher-level languages and register-machine languages. 
+
+The explicit-control evaluator illustrates the strategy of interpretation. An interpreter written in the native language of a machine configures the machine to execute programs writter in a language (the source language) that may differ from the native language of the machine performing the evaluation. The primitive procedures of the source language are implemented as a library of subroutines written in the native language of the given machine. A program to be interpreted (called the source program) is represented as a data structure. The interpreter traverses this data structure, analyzing the source program. As it does so, it simulates the intended behavior of the source program by calling appropriate primitive subroutines from the library. 
+
+In this section, we explore the alternative strategy of compilation. A compiler for a given source language and machine translates a source program into an equivalent program (called the object program) written in the machine's native language. 
+
+** An Overview of the Compiler  
+
+Our compiler is much like our interpreter, both in its structure and in the function it performs. It will be easy to interface compiled code and interpreted code, as we will design the compiler to generate code that obeys the same conventions of register usage as the interpreter. 
+
+This suggests a strategy for implementing a rudimentary compiler: We traverse the expression in the same way that the interpreter does, and when we encounter a register instruction that the interpreter would perform in evaluating the expression, we do not execute the instruction but instead accumulate it. The resulting sequence will be the object code. 
+
+** Structure of the Compiler 
+
+The procedure compile is the top-level dispatch in the compiler. Compile performs a case analysis on the syntactic type of the expression to be compiled. For each type of expression, it dispatches to a specialized code generator: 
+
+#+BEGIN_SRC scheme
+(define (compile exp target linkage)
+  (cond ((self-evaluating? exp)
+         (compile-self-evaluating exp target linkage))
+        ((quoted? exp)
+         (compile-quoted exp target linkage))
+        ((variable? exp)
+         (compile-variable exp target linkage))
+        ((assignment? exp)
+         (compile-assignment exp target linkage))
+        ((definition? exp)
+         (compile-definition exp target linkage))
+        ((if? exp)
+         (compile-if exp target linkage))
+        ((lambda? exp)
+         (compile-lambda exp target linkage))
+        ((begin? exp)
+         (compile-sequence
+          (begin-actions exp) target linkage))
+        ((cond? exp)
+         (compile (cond->if exp) target linkage))
+        ((application? exp)
+         (compile-application exp target linkage))
+        (else (error "Unknown expression type: COMPILE" exp))))
+#+END_SRC
+
+** Targets and Linkages
+
+Compile and the code generators that it call also take two more args: 
+- target specifies the register in which the compiled code is to return the value of the expression
+- linkage descriptor - describes how the code resulting from the compilation of the expression should proceed when it has finished its execution 
+
+The linkage descriptor can require that the code do one of three things:
+- continue at the next instruction in the sequence; next
+- return from the procedure being compiled; return
+- jump to a named entry point; designated label 
+
+** Instruction Sequences and Stack Usage 
+
+Each code generator returns an instruction sequence containing the object code it has generated for the expression. Code generation for a compound expression is accomplished by combining the output from simpler code generators for component expressions.
+
+An instruction sequence will contain three pieces of information: 
+- The set of registers that must be initialized before the instructions in the sequence are executed
+- The set of registers whose values are mofidied by the instructions in the sequence
+- The actual instructions in the sequence 
+
+We will represent an instruction sequence as a list of its three parts: 
+
+#+BEGIN_SRC scheme
+(define (make-instruction-sequence needs modifies statements)
+  (list needs modifies statements))
+
+; construct a sequence with no statements
+(define (empty-instruction-sequence)
+  (make-instruction-sequence '() '() '()))
+#+END_SRC
+
