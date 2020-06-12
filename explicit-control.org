@@ -128,5 +128,294 @@ A procedure application is specified by a combination containing an operator and
 
 ** Procedure Application 
 
+The entry point apply-dispatch corresponds to the apply procedure of the metacircular evaluator. By the time we get to apply-dispatch, the proc register contains the procedrue to apply and argl contains the list of evaluated arguments to which it must be applied. 
+
+As with the metacircular apply, there are two cases to consider: Either the procedure to be applied is a primitive or it is a compound procedure. 
+
+#+BEGIN_SRC scheme
+(...
+ apply-dispatch
+ (test (op primitive-procedure?) (reg proc))
+ (branch (label primitive-apply))
+ (test (op compound-procedure?) (reg proc))
+ (branch (label compound-apply))
+ (goto (label unknown-procedure-type))
+ ...
+ primitive-apply
+ (assign val (op apply-primitive-procedure) (reg proc) (reg argl))
+ (restore continue)
+ (goto (reg continue))
+ ...
+ compound-apply
+ (assign unev (op procedure-parameters) (reg proc))
+ (assign env (op procedure-environment) (reg proc))
+ (assign (op extend-environment) (reg unev) (reg argl) (reg env))
+ (goto (label ev-sequence))
+ ...)
+#+END_SRC
+
+** Sequence Evaluation and Tail Recursion 
+
+The portion of the explicit control evaluator at ev-sequence is analogous to the metacircular evaluator's eval-sequence procedure. It handles sequences of expressions in procedure bodies or in explicit begin expressions. 
 
 
+#+BEGIN_SRC scheme
+(...
+ ev-begin
+ (assign unev (op begin-actions) (reg exp))
+ (save continue)
+ (goto (label ev-sequence))
+ ...
+ ev-sequence
+ (assign exp (op first-exp) (reg unev))
+ (test (op last-exp?) (reg unev))
+ (branch (label ev-sequence-last-exp))
+ (save unev)
+ (save env)
+ (assign continue (label ev-sequence-continue))
+ (goto (label eval-dispatch))
+ ev-sequence-continue
+ (restore env)
+ (restore unev)
+ (assign unev (op rest-exps) (reg unev))
+ (goto (label ev-sequence))
+ ev-sequence-last-exp
+ (restore continue)
+ (goto (label eval-dispatch))
+ ...)
+#+END_SRC
+
+** Tail Recursion 
+
+An evaluator that can execute a procedrue such as sqrt-iter without requiring increasing storage as the procedure continues to call itself is called a tail-recursive evaluator. 
+
+Our evaluator is tail-recursive because in order to evaluate the final expression of a sequence we transfer directly to eval-dispatch without saving any information on the stack. Hence, evaluating the final expression in a sequence, even if it is a procedure call, will not cause any information to be accumulated on the stack. 
+
+#+BEGIN_SRC scheme
+(...
+ ev-sequence
+ (test (op no-more-exps?) (reg unev))
+ (branch (label ev-sequence-end))
+ (assign exp (op first-exp) (reg unev))
+ (save unev)
+ (save env)
+ (assign continue (label ev-sequence-continue))
+ (goto (label eval-dispatch))
+ ev-sequence-continue
+ (restore env)
+ (restore unev)
+ (assign unev (op rest-exps) (reg unev))
+ (goto (label ev-sequence))
+ ev-sequence-end
+ (restore continue)
+ (goto (reg continue))
+ ...)
+#+END_SRC
+
+** Conditionals, Assignments, and Definitions 
+
+As with the metacircular evaluator, special forms are handled by selectively evaluating fragments of the expression. 
+
+#+BEGIN_SRC scheme
+; if statements
+(...
+ ev-if
+ (save exp)
+ (save env)
+ (save continue)
+ (assign continue (label ev-if-decide))
+ (assign exp (op if-predicate) (reg exp))
+ (goto (label eval-dispatch)) 
+ ... ; test whether pred is true or false
+ ev-if-decide
+ (restore continue)
+ (restore env)
+ (restore exp)
+ (test (op true?) (reg val))
+ (branch (label ev-if-consequent))
+ ev-if-alternative
+ (assign exp (op if-alternative) (reg exp))
+ (goto (label eval-dispatch))
+ ev-if-consequent
+ (assign exp (op if-consequent) (reg exp))
+ (goto (label eval-dispatch))
+ ...)
+
+; assignment 
+(...
+ ev-assignment
+ (assign unev (op assignment-variable) (reg exp))
+ (save unev)
+ (assign exp (op assignment-value) (reg exp))
+ (save env)
+ (save continue)
+ (assign continue (label ev-assignment-1))
+ (goto (label eval-dispatch))
+ ev-assignment-1
+ (restore continue)
+ (restore env)
+ (restore unev)
+ (perform (op set-variable-value!) (reg unev) (reg val) (reg env))
+ (assign val (const ok))
+ (goto (reg continue))
+ ...)
+
+; definitions
+(...
+ ev-definition
+ (assign unev (op definition-variable) (reg exp))
+ (save unev)
+ (assign exp (op definition-value) (reg exp))
+ (save env)
+ (save continue)
+ (assign continue (label ev-definition-1))
+ ; evaluate the definition value
+ (goto (label eval-dispatch))
+ ev-definition-1
+ (restore continue)
+ (restore env)
+ (restore unev)
+ (perform (op define-variable!) (reg unev) (reg val) (reg env))
+ (assign val (const ok))
+ (goto (reg continue))
+ ...)
+#+END_SRC
+
+*** Exercise 5.23
+
+Extend the evaluator to handle derived expressions such asa cond, let, and so on. You may cheat and assume that the syntax transformers such as cond->if are available as machine operations
+
+#+BEGIN_SRC scheme
+; cond
+(...
+ ev-cond
+ (assign exp (op cond->if) (reg exp))
+ (goto (label ev-if))
+ ...)
+
+; let 
+(...
+ ev-let
+ (assign exp (op let->combination) (reg exp))
+ (goto (label ev-lambda))
+ ...)
+#+END_SRC
+
+*** Exercise 5.24 
+
+Implement cond as a new basic special form without reducing it to if. You will have to construct a loop that tests the predicates of successive cond clauses until you find one that is true, and then use ev-sequence to evaluate the actions of the clause. 
+
+#+BEGIN_SRC scheme
+(cond ((p? exp) (ans))
+      ...
+      (else (alt)))
+
+(...
+ ev-cond
+ (assign exp (op cond-clause) (reg exp))
+ ; check for null
+ (test (op null?) (reg exp))
+ (branch (label ev-cond-end))
+ ; test for else clauses
+ (assign unev (op car) (reg exp))
+ (assign exp (op cdr) (reg exp))
+ (test (op cond-else-clauses?) (reg unev))
+ (branch (label cond-else))
+ ; test predicates
+ (save env)
+ (save continue)
+ (save unev)
+ (assign continue (label ev-cond-loop))
+ (assign exp (op cond-predicate) (reg unev))
+ (goto (label ev-dispatch))
+ ev-cond-loop
+ (restore exp)
+ (test (op true?) (reg val))
+ (branch (label cond-result))
+ ; else 
+ (restore unev)
+ (restore env)
+ (goto (label ev-cond))
+ cond-result
+ (restore unev)
+ (assign exp (op cond-actions) (reg unev))
+ (assign exp (op sequence->exp) (reg exp))
+ (goto (label ev-dispatch))
+ cond-else
+ (assign unev (op cond-actions) (reg unev))
+ (assign exp (op sequence->exp) (reg unev))
+ (goto (label ev-dispatch))
+ ev-cond-end
+ (goto (reg continue))
+ ...)
+#+END_SRC
+
+*** Exercise 5.25 
+
+Modify the evaluator so that it uses normal order evaluation, based on the lazy evaluator of 4.2 
+
+Awesome, but skip because time is finite rn
+
+** Running the Evaluator 
+
+#+BEGIN_SRC scheme
+(...
+ read-eval-print-loop
+ (perform (op initialize-stack))
+ (perform (op prompt-for-input) (const ";;; EC-Eval input:"))
+ (assign exp (op read))
+ (assign env (op get-global-environment))
+ (assign continue (label print-result))
+ (goto (label eval-dispatch))
+ print-result
+ (perform (op announce-output) (const ";;; EC-Eval value:"))
+ (perform (op user-print) (reg val))
+ (goto (label read-eval-print-loop))
+ ... ; print an error
+ unknown-expression-type
+ (assign val (const unknown-expression-type-error))
+ (goto (label signal-error))
+ unknown-procedure-type
+ (restore continue)
+ (assign val (const unknown-procedure-type-error))
+ (goto (label signal-error))
+ signal-error
+ (perform (op user-print) (reg val))
+ (goto (label read-eval-print-loop))
+ ...)
+#+END_SRC
+
+If we combine all the code fragments presented in 5.1 - 5.4 we can create an evaluator machine model that we can run using the register machine simulator of 5.2 
+
+#+BEGIN_SRC scheme
+(define eceval
+  (make-machine
+   '(exp env val proc argl continue unev)
+   '(read-eval-print-loop
+     ("entire machine controller as given above"))))
+
+; define scheme procs to simulate the operations used as primitives by the evaluator 
+(define eceval-operations
+  (list (list 'self-evaluating? self-evaluating)
+        ("complete list of operations for eceval machine")))
+
+; initialize the global environment and run the evaluator 
+(define the-global-environment
+  (setup-environment))
+
+(start eceval)
+#+END_SRC
+
+** Monitoring the Performance of the Evaluator 
+
+Simulation can be a powerful tool to guide the implementation of evaluators. We can explore variations on the register machine design, but also monitor the performance of the simulated evaluator. 
+
+#+BEGIN_SRC scheme
+; observe the number of stack operations required to evaluate various expressions
+(...
+ print-result
+ ; added instruction
+ (perform (op print-stack-statistics))
+ (perform (op announce-input) (const ";;; EC-Eval value:"))
+ ...)
+#+END_SRC
