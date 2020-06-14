@@ -373,4 +373,130 @@ proc-return
          (error "return linkage, target not val: COMPILE" target))))
 #+END_SRC
 
-** Combining Instruction Sequences 
+** Combining Instruction Sequences
+
+This section describes the details on how instruction sequences are represented and combined. Recall that an instruction sequence is represented as a list of the registers needed, the registers modified, and the actual instructions. 
+
+#+BEGIN_SRC scheme
+; determine the registers needed
+(define (registers-needed s)
+  (if (symbol? s) '() (car s)))
+
+(define (registers-modified s)
+  (if (symbol? s) '() (cadr s)))
+
+(define (statements s)
+  (if (symbol? s)
+      (list s)
+      (caddr s)))
+
+; determine whether a given sequence needs or modifies a given register
+(define (needs-register? seq reg)
+  (memq reg (registers-needed seq)))
+
+(define (modifies-register? seq reg)
+  (memq reg (registers-modified seq)))
+#+END_SRC
+
+In terms of these predicates and selectors we can implement the various instruction sequence combininers used throughout the compiler. 
+
+#+BEGIN_SRC scheme
+(define (append-instruction-sequences . seqs)
+  (define (append-2-sequences seq1 seq2)
+    (make-instruction-sequence
+     (list-union
+      (registers-needed seq1)
+      (list-difference (registers-needed seq2)
+                       (registers-modified seq1)))
+     (list-union (registers-modified seq1)
+                 (registers-modified seq2))
+     (append (statements seq1) (statements seq2))))
+  (define (append-seq-list seqs)
+    (if (null? seqs)
+        (empty-instruction-sequence)
+        (append-2-sequences
+         (car seqs)
+         (append-seq-list (cdr seqs)))))
+  (append-seq-list seqs))
+
+(define (list-union s1 s2)
+  (cond ((null? s1) s2)
+        ((memq (car s1) s2)
+         (list-union (cdr s1) s2))
+        (else (cons (car s1) (list-union (cdr s1) s2)))))
+
+(define (list-difference s1 s2)
+  (cond ((null? s1) '())
+        ((memq (car s1) s2)
+         (list-difference (cdr s1) s2))
+        (else (cons (car s1)
+                    (list-difference (cdr s1) s2)))))
+
+(list-difference (list 1 2 3 4) (list 2 3 4 5))
+
+(define (preserving regs seq1 seq2)
+  (if (null? regs)
+      (append-instruction-sequences seq1 seq2)
+      (let ((first-reg (car regs)))
+        (if (and (needs-register? seq2 first-reg)
+                 (modifies-register? seq1 first-reg))
+            (preserving (cdr regs)
+                        (make-instruction-sequence
+                         (list-union (list first-reg)
+                                     (registers-needed seq1))
+                         (list-difference (registers-modified seq1)
+                                          (list first-reg))
+                         (append `((save ,first-reg))
+                                 (statements seq1)
+                                 `((restore ,first-reg))))
+                        seq2)
+            (preserving (cdr regs) seq1 seq2)))))
+
+; used by compile-lambda to append a procedure body to another sequence
+(define (tack-on-instruction-sequence seq body-seq)
+  (make-instruction-sequence (registers-needed seq)
+                             (registers-modified seq)
+                             (append (statements seq)
+                                     (statements body-seq))))
+
+; used in compile-if and compile-procedure-call to append two alternative branches that follow a test
+(define (parallel-instruction-sequences seq1 seq2)
+  (make-instruction-sequence
+   (list-union (registers-needed seq1)
+               (registers-needed seq2))
+   (list-union (registers-modified seq1)
+               (registers-modified seq2))
+   (append (statements seq1)
+           (statements seq2))))
+#+END_SRC
+
+We have now seen all the elements of a compiler! 
+
+** Lexical Addressing
+
+One of the most common optimizations performed by compilers is the optimization of variable lookup. Our compiler generates code that uses the lookup-variable-value operation of the evaluator machine. This searches for a variable by comparing it with each variable that is currently bound, working frame by frame outward through the run-time environment. 
+
+Since our language is lexically scoped, the runtime environment for any expression will have a structure that parallels the lexical structure of the program in which the expression appears. We can exploit this by inventing a new kind of variable lookup operation, lexical-address-lookup, that takes as args an environment and a lexical address that consists of two numbers: a frame number, which specifies how many frames to pass over, and a displacement number which specifies how many variables to pass over in that frame. 
+
+One way for the compiler to produce code that uses lexical addressing is to maintain a data structure called a compile time environment. This keeps track of which variables will be at which positions in which frames in the run-time environment when a particular variable-access operation is executed. The compile-time environment becomes an additional argument to compile that is passed along to each code generator. 
+
+** Interfacing Compiled Code to the Evaluator 
+
+We have not looked at how to load compiled code into the evaluator machine or how to run it. 
+
+#+BEGIN_SRC scheme
+(define (compile-and-go expression)
+  (let ((instructions
+         (assemble
+          (statements
+           (compile expression 'val 'return))
+          eceval)))
+    (set! the-global-environment (setup-environment))
+    (set-register-contents! eceval 'val instructions)
+    (set-register-contents! eceval 'flag true)
+    (start exeval)))
+#+END_SRC
+
+** Interpretation and Compilation 
+
+An interpreter raises the machine to the level of the user program; a compiler lowers the user program to the level of the machine language. We can regard a programming language as a coherent family of abstractions erected on the machine language. 
